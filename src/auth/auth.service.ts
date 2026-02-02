@@ -1,10 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import type { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto';
 import type { JwtPayload } from '../common/decorators/current-user.decorator';
 
@@ -46,6 +51,47 @@ export class AuthService {
       throw new UnauthorizedException('Usuário não encontrado');
     }
     return this.buildAuthResponse(user);
+  }
+
+  async getProfile(payload: JwtPayload): Promise<UserResponseDto> {
+    const user = await this.usersService.findById(payload.sub);
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar ?? undefined,
+    };
+  }
+
+  async updateProfile(
+    payload: JwtPayload,
+    dto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    const userId = payload.sub;
+    let passwordHash: string | undefined;
+    if (dto.password !== undefined && dto.password.trim() !== '') {
+      if (!dto.confirmPassword || dto.confirmPassword.trim() === '') {
+        throw new BadRequestException('Confirme a senha');
+      }
+      if (dto.password !== dto.confirmPassword) {
+        throw new BadRequestException('As senhas não coincidem');
+      }
+      passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
+    }
+    const user = await this.usersService.updateProfile(userId, {
+      ...(dto.name !== undefined && { name: dto.name }),
+      ...(dto.email !== undefined && { email: dto.email }),
+      ...(passwordHash !== undefined && { passwordHash }),
+    });
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar ?? undefined,
+    };
   }
 
   private async buildAuthResponse(user: {

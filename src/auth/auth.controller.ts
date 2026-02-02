@@ -1,8 +1,9 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -40,5 +41,26 @@ export class AuthController {
   @ApiResponse({ status: 401, description: 'Token inválido ou expirado' })
   async refresh(@CurrentUser() payload: JwtPayload): Promise<AuthResponseDto> {
     return this.authService.refresh(payload);
+  }
+
+  @Get('me')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Obter dados do usuário logado' })
+  @ApiResponse({ status: 200, description: 'Dados do usuário (sem senha)' })
+  async getProfile(@CurrentUser() payload: JwtPayload) {
+    return this.authService.getProfile(payload);
+  }
+
+  @Put('me')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'Atualizar dados do usuário (nome, email e/ou senha)' })
+  @ApiResponse({ status: 200, description: 'Dados atualizados' })
+  @ApiResponse({ status: 400, description: 'Senhas não coincidem ou confirmação ausente' })
+  @ApiResponse({ status: 409, description: 'Email já em uso' })
+  async updateProfile(
+    @CurrentUser() payload: JwtPayload,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(payload, dto);
   }
 }

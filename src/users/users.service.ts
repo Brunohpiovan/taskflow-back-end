@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateUserData {
@@ -6,6 +6,12 @@ export interface CreateUserData {
   name: string;
   passwordHash: string;
   avatar?: string;
+}
+
+export interface UpdateProfileData {
+  name?: string;
+  email?: string;
+  passwordHash?: string;
 }
 
 export interface UserForAuth {
@@ -61,6 +67,47 @@ export class UsersService {
         passwordHash: data.passwordHash,
         avatar: data.avatar,
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+      },
+    });
+    return user;
+  }
+
+  async updateProfile(
+    userId: string,
+    data: UpdateProfileData,
+  ): Promise<UserForAuth> {
+    const current = await this.findById(userId);
+    if (!current) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+    const updateData: { name?: string; email?: string; passwordHash?: string } = {};
+    if (data.name !== undefined) {
+      updateData.name = data.name.trim();
+    }
+    if (data.email !== undefined) {
+      const email = data.email.toLowerCase();
+      if (email !== current.email) {
+        const existing = await this.findByEmail(email);
+        if (existing) {
+          throw new ConflictException('Este email já está em uso');
+        }
+        updateData.email = email;
+      }
+    }
+    if (data.passwordHash !== undefined) {
+      updateData.passwordHash = data.passwordHash;
+    }
+    if (Object.keys(updateData).length === 0) {
+      return current;
+    }
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
       select: {
         id: true,
         email: true,
