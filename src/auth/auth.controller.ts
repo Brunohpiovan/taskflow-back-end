@@ -1,11 +1,14 @@
-import { Controller, Get, Post, Put, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, HttpCode, HttpStatus, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { AuthGuard } from '@nestjs/passport';
+import * as express from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { AuthResponseDto } from './dto/auth-response.dto';
+import type { AuthResponseDto } from './dto/auth-response.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtPayload } from '../common/decorators/current-user.decorator';
@@ -13,7 +16,10 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -25,6 +31,54 @@ export class AuthController {
   @ApiResponse({ status: 429, description: 'Muitas tentativas de login. Tente novamente em alguns minutos.' })
   async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Iniciar login com Google' })
+  @ApiResponse({ status: 302, description: 'Redireciona para Google' })
+  googleLogin() {
+    // Passport redirects to Google
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback do login com Google' })
+  @ApiResponse({ status: 302, description: 'Redireciona para o frontend com token' })
+  googleCallback(@Req() req: express.Request, @Res() res: express.Response) {
+    const auth = (req as express.Request & { user?: AuthResponseDto }).user;
+    if (!auth?.token) {
+      const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+    const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+    return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`);
+  }
+
+  @Public()
+  @Get('github')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Iniciar login com GitHub' })
+  @ApiResponse({ status: 302, description: 'Redireciona para GitHub' })
+  githubLogin() {
+    // Passport redirects to GitHub
+  }
+
+  @Public()
+  @Get('github/callback')
+  @UseGuards(AuthGuard('github'))
+  @ApiOperation({ summary: 'Callback do login com GitHub' })
+  @ApiResponse({ status: 302, description: 'Redireciona para o frontend com token' })
+  githubCallback(@Req() req: express.Request, @Res() res: express.Response) {
+    const auth = (req as express.Request & { user?: AuthResponseDto }).user;
+    if (!auth?.token) {
+      const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+      return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
+    }
+    const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+    return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`);
   }
 
   @Public()

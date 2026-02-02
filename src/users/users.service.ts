@@ -4,8 +4,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export interface CreateUserData {
   email: string;
   name: string;
-  passwordHash: string;
+  passwordHash?: string | null;
   avatar?: string;
+  provider?: string;
+  providerId?: string;
 }
 
 export interface UpdateProfileData {
@@ -22,7 +24,7 @@ export interface UserForAuth {
 }
 
 export interface UserWithPassword extends UserForAuth {
-  passwordHash: string;
+  passwordHash: string | null;
 }
 
 @Injectable()
@@ -40,6 +42,68 @@ export class UsersService {
         passwordHash: true,
       },
     });
+  }
+
+  async findByProvider(provider: string, providerId: string): Promise<UserForAuth | null> {
+    return this.prisma.user.findFirst({
+      where: { provider, providerId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+      },
+    });
+  }
+
+  async findOrCreateByOAuth(data: {
+    provider: string;
+    providerId: string;
+    email: string;
+    name: string;
+    avatar?: string | null;
+  }): Promise<UserForAuth> {
+    const normalizedEmail = data.email.toLowerCase();
+    const user = await this.findByProvider(data.provider, data.providerId);
+    if (user) {
+      return user;
+    }
+    const existingByEmail = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, email: true, name: true, avatar: true, provider: true, providerId: true },
+    });
+    if (existingByEmail) {
+      await this.prisma.user.update({
+        where: { id: existingByEmail.id },
+        data: {
+          provider: data.provider,
+          providerId: data.providerId,
+          ...(data.avatar && { avatar: data.avatar }),
+        },
+      });
+      return {
+        id: existingByEmail.id,
+        email: existingByEmail.email,
+        name: existingByEmail.name,
+        avatar: data.avatar ?? existingByEmail.avatar ?? null,
+      };
+    }
+    const created = await this.prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        name: data.name.trim(),
+        provider: data.provider,
+        providerId: data.providerId,
+        avatar: data.avatar ?? undefined,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+      },
+    });
+    return created;
   }
 
   async findById(id: string): Promise<UserForAuth | null> {
@@ -64,8 +128,10 @@ export class UsersService {
       data: {
         email,
         name: data.name.trim(),
-        passwordHash: data.passwordHash,
-        avatar: data.avatar,
+        ...(data.passwordHash != null && { passwordHash: data.passwordHash }),
+        ...(data.avatar != null && { avatar: data.avatar }),
+        ...(data.provider != null && { provider: data.provider }),
+        ...(data.providerId != null && { providerId: data.providerId }),
       },
       select: {
         id: true,

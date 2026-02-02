@@ -18,6 +18,8 @@ describe('AuthService', () => {
     passwordHash: 'hashed',
     name: 'User',
     avatar: null,
+    provider: null,
+    providerId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

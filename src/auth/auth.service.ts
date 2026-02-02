@@ -28,6 +28,9 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Email ou senha inválidos');
     }
+    if (!user.passwordHash) {
+      throw new UnauthorizedException('Esta conta usa login com Google ou GitHub. Use um deles para entrar.');
+    }
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email ou senha inválidos');
@@ -41,6 +44,20 @@ export class AuthService {
       email: dto.email,
       name: dto.name,
       passwordHash,
+    });
+    return this.buildAuthResponse(user);
+  }
+
+  async validateOAuthUser(provider: string, profile: { id: string; emails?: { value: string }[]; displayName?: string; photos?: { value: string }[] }): Promise<AuthResponseDto> {
+    const email = profile.emails?.[0]?.value ?? `${profile.id}@${provider}.oauth`;
+    const name = profile.displayName?.trim() ?? email.split('@')[0] ?? 'Usuário';
+    const avatar = profile.photos?.[0]?.value ?? null;
+    const user = await this.usersService.findOrCreateByOAuth({
+      provider,
+      providerId: profile.id,
+      email,
+      name,
+      avatar,
     });
     return this.buildAuthResponse(user);
   }
