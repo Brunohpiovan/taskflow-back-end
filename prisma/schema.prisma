@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String        @map("password_hash")
+  name         String
+  avatar       String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  environments Environment[]
+
+  @@map("users")
+}
+
+model Environment {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  color       String?
+  icon        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boards      Board[]
+
+  @@map("environments")
+}
+
+model Board {
+  id             String   @id @default(uuid())
+  environmentId  String   @map("environment_id")
+  name           String
+  description    String?
+  position       Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  environment    Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  cards          Card[]
+
+  @@map("boards")
+}
+
+model Card {
+  id          String    @id @default(uuid())
+  boardId     String    @map("board_id")
+  title       String
+  description String?
+  position    Int       @default(0)
+  labels      Json?     // array of strings
+  dueDate     DateTime? @map("due_date")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@map("cards")
+}
