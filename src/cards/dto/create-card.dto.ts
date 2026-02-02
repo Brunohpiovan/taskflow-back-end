@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   MinLength,
+  MaxLength,
   IsInt,
   Min,
   IsArray,
@@ -10,15 +11,20 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
+export const CARD_DESCRIPTION_MAX_LENGTH = 500;
+
 export class CreateCardDto {
   @ApiProperty({ example: 'Tarefa exemplo' })
   @IsString()
   @MinLength(1, { message: 'Título é obrigatório' })
   title: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ maxLength: CARD_DESCRIPTION_MAX_LENGTH })
   @IsOptional()
   @IsString()
+  @MaxLength(CARD_DESCRIPTION_MAX_LENGTH, {
+    message: `A descrição deve ter no máximo ${CARD_DESCRIPTION_MAX_LENGTH} caracteres`,
+  })
   description?: string;
 
   @ApiProperty()
