@@ -4,7 +4,17 @@ import { BoardsService } from '../boards/boards.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
-import { Card } from '@prisma/client';
+import type { MoveCardResponseDto } from './dto/move-card-response.dto'; // shape only
+
+const cardSelect = {
+  id: true,
+  title: true,
+  description: true,
+  position: true,
+  boardId: true,
+  labels: true,
+  dueDate: true,
+} as const;
 
 export interface CardResponse {
   id: string;
@@ -14,8 +24,6 @@ export interface CardResponse {
   boardId: string;
   labels?: string[];
   dueDate?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 @Injectable()
@@ -30,6 +38,7 @@ export class CardsService {
     await this.boardsService.findOneForUser(boardId, userId);
     const cards = await this.prisma.card.findMany({
       where: { boardId },
+      select: cardSelect,
       orderBy: { position: 'asc' },
     });
     return cards.map((c) => this.toResponse(c));
@@ -49,6 +58,7 @@ export class CardsService {
         labels: dto.labels ?? undefined,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       },
+      select: cardSelect,
     });
     return this.toResponse(card);
   }
@@ -70,6 +80,7 @@ export class CardsService {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         }),
       },
+      select: cardSelect,
     });
     return this.toResponse(card);
   }
@@ -78,37 +89,45 @@ export class CardsService {
     id: string,
     userId: string,
     dto: MoveCardDto,
-  ): Promise<CardResponse> {
+  ): Promise<MoveCardResponseDto> {
     const card = await this.findOneOrThrow(id, userId);
     await this.boardsService.findOneForUser(dto.targetBoardId, userId);
     const sameBoard = card.boardId === dto.targetBoardId;
+    const moveSelect = { id: true, boardId: true, position: true } as const;
     const updated = await this.prisma.$transaction(async (tx) => {
       if (sameBoard) {
         const cards = await tx.card.findMany({
           where: { boardId: card.boardId },
+          select: { id: true, position: true },
           orderBy: { position: 'asc' },
         });
         const fromIdx = cards.findIndex((c) => c.id === id);
-        if (fromIdx < 0) return card;
+        if (fromIdx < 0) return { id: card.id, boardId: card.boardId, position: card.position };
         const toIdx = Math.min(Math.max(0, dto.newPosition), cards.length - 1);
         if (fromIdx === toIdx) {
-          return tx.card.update({
+          const r = await tx.card.update({
             where: { id },
             data: { position: dto.newPosition },
+            select: moveSelect,
           });
+          return r;
         }
         const withoutCard = cards.filter((c) => c.id !== id);
-        withoutCard.splice(toIdx, 0, card);
+        withoutCard.splice(toIdx, 0, { id: card.id, position: card.position });
         for (let i = 0; i < withoutCard.length; i++) {
           await tx.card.update({
             where: { id: withoutCard[i].id },
             data: { position: i },
           });
         }
-        return tx.card.findUniqueOrThrow({ where: { id } });
+        return tx.card.findUniqueOrThrow({
+          where: { id },
+          select: moveSelect,
+        });
       }
       const targetCards = await tx.card.findMany({
         where: { boardId: dto.targetBoardId },
+        select: { id: true },
         orderBy: { position: 'asc' },
       });
       for (let i = dto.newPosition; i < targetCards.length; i++) {
@@ -119,6 +138,7 @@ export class CardsService {
       }
       const sourceCards = await tx.card.findMany({
         where: { boardId: card.boardId },
+        select: { id: true, position: true },
         orderBy: { position: 'asc' },
       });
       for (const c of sourceCards) {
@@ -132,9 +152,10 @@ export class CardsService {
       return tx.card.update({
         where: { id },
         data: { boardId: dto.targetBoardId, position: dto.newPosition },
+        select: moveSelect,
       });
     });
-    return this.toResponse(updated);
+    return updated;
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -142,19 +163,35 @@ export class CardsService {
     await this.prisma.card.delete({ where: { id } });
   }
 
-  private async findOneOrThrow(id: string, userId: string): Promise<Card> {
+  private async findOneOrThrow(
+    id: string,
+    userId: string,
+  ): Promise<{ id: string; boardId: string; position: number }> {
     const card = await this.prisma.card.findUnique({
       where: { id },
-      include: { board: { include: { environment: true } } },
+      select: {
+        id: true,
+        boardId: true,
+        position: true,
+        board: { select: { environment: { select: { userId: true } } } },
+      },
     });
     if (!card || card.board.environment.userId !== userId) {
       throw new NotFoundException('Card não encontrado');
     }
-    return card;
+    return { id: card.id, boardId: card.boardId, position: card.position };
   }
 
-  private toResponse(c: Card): CardResponse {
-    const labels = c.labels as string[] | null;
+  private toResponse(c: {
+    id: string;
+    title: string;
+    description?: string | null;
+    position: number;
+    boardId: string;
+    labels?: unknown;
+    dueDate?: Date | null;
+  }): CardResponse {
+    const labels = c.labels as string[] | null | undefined;
     return {
       id: c.id,
       title: c.title,
@@ -163,8 +200,6 @@ export class CardsService {
       boardId: c.boardId,
       labels: labels ?? undefined,
       dueDate: c.dueDate?.toISOString(),
-      createdAt: c.createdAt.toISOString(),
-      updatedAt: c.updatedAt.toISOString(),
     };
   }
 }

@@ -2,7 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
 import { UpdateEnvironmentDto } from './dto/update-environment.dto';
-import { Environment } from '@prisma/client';
+
+const environmentSelect = {
+  id: true,
+  name: true,
+  description: true,
+  color: true,
+  icon: true,
+} as const;
 
 export interface EnvironmentResponse {
   id: string;
@@ -12,8 +19,6 @@ export interface EnvironmentResponse {
   icon?: string;
   boardsCount?: number;
   cardsCount?: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 @Injectable()
@@ -23,10 +28,11 @@ export class EnvironmentsService {
   async findAll(userId: string): Promise<EnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
       where: { userId },
-      include: {
+      select: {
+        ...environmentSelect,
         _count: { select: { boards: true } },
         boards: {
-          include: { _count: { select: { cards: true } } },
+          select: { _count: { select: { cards: true } } },
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -51,6 +57,7 @@ export class EnvironmentsService {
         color: dto.color?.trim(),
         icon: dto.icon?.trim(),
       },
+      select: environmentSelect,
     });
     return this.toResponse(environment);
   }
@@ -69,8 +76,9 @@ export class EnvironmentsService {
         ...(dto.color !== undefined && { color: dto.color?.trim() }),
         ...(dto.icon !== undefined && { icon: dto.icon?.trim() }),
       },
+      select: environmentSelect,
     });
-    return this.toResponse(environment as Environment);
+    return this.toResponse(environment);
   }
 
   async remove(id: string, userId: string): Promise<void> {
@@ -82,16 +90,17 @@ export class EnvironmentsService {
     id: string,
     userId: string,
   ): Promise<
-    Environment & {
+    { id: string; name: string; description: string | null; color: string | null; icon: string | null } & {
       _count?: { boards: number };
       boards?: Array<{ _count: { cards: number } }>;
     }
   > {
     const environment = await this.prisma.environment.findFirst({
       where: { id, userId },
-      include: {
+      select: {
+        ...environmentSelect,
         _count: { select: { boards: true } },
-        boards: { include: { _count: { select: { cards: true } } } },
+        boards: { select: { _count: { select: { cards: true } } } },
       },
     });
     if (!environment) {
@@ -100,23 +109,18 @@ export class EnvironmentsService {
     return environment;
   }
 
-  private toResponse(e: Environment): EnvironmentResponse {
+  private toResponse(e: { id: string; name: string; description?: string | null; color?: string | null; icon?: string | null }): EnvironmentResponse {
     return {
       id: e.id,
       name: e.name,
       description: e.description ?? undefined,
       color: e.color ?? undefined,
       icon: e.icon ?? undefined,
-      createdAt: e.createdAt.toISOString(),
-      updatedAt: e.updatedAt.toISOString(),
     };
   }
 
   private toResponseWithCounts(
-    e: Environment & {
-      _count?: { boards: number };
-      boards?: Array<{ _count: { cards: number } }>;
-    },
+    e: { id: string; name: string; description?: string | null; color?: string | null; icon?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
   ): EnvironmentResponse {
     const boardsCount = e._count?.boards;
     const cardsCount = e.boards?.reduce(

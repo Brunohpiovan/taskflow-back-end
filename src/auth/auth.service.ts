@@ -53,7 +53,6 @@ export class AuthService {
     email: string;
     name: string;
     avatar: string | null;
-    createdAt: Date;
   }): Promise<AuthResponseDto> {
     const expiresIn = this.configService.get<string>('jwt.expiresIn') ?? '7d';
     const expiresInSeconds = expiresIn === '7d' ? 604800 : parseInt(expiresIn, 10) || 604800;
@@ -69,7 +68,6 @@ export class AuthService {
       name: user.name,
       email: user.email,
       avatar: user.avatar ?? undefined,
-      createdAt: user.createdAt.toISOString(),
     };
     return { user: userResponse, token };
   }

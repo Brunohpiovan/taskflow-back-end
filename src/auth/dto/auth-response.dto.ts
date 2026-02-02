@@ -12,9 +12,6 @@ export class UserResponseDto {
 
   @ApiProperty({ required: false })
   avatar?: string;
-
-  @ApiProperty()
-  createdAt: string;
 }
 
 export class AuthResponseDto {
