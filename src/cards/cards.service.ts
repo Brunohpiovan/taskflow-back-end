@@ -16,6 +16,13 @@ const cardListSelect = {
   boardId: true,
   dueDate: true,
   completed: true,
+  labels: {
+    select: {
+      id: true,
+      name: true,
+      color: true,
+    },
+  },
 } as const;
 
 // Full select for card details
@@ -43,7 +50,7 @@ export interface CardListResponse {
   description?: string;
   position: number;
   boardId: string;
-  labels: { color: string }[];
+  labels: { id: string; name: string; color: string }[];
   dueDate?: string;
   completed: boolean;
 }
@@ -285,7 +292,7 @@ export class CardsService {
     description?: string | null;
     position: number;
     boardId: string;
-    labels?: { color: string }[];
+    labels?: { id: string; name: string; color: string }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardListResponse {
