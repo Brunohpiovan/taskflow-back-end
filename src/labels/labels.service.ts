@@ -8,22 +8,22 @@ export class LabelsService {
     constructor(private prisma: PrismaService) { }
 
     async create(createLabelDto: CreateLabelDto) {
-        const { boardId, ...data } = createLabelDto;
-        // Verify board exists
-        const board = await this.prisma.board.findUnique({ where: { id: boardId } });
-        if (!board) throw new NotFoundException('Board not found');
+        const { environmentId, ...data } = createLabelDto;
+        // Verify environment exists
+        const environment = await this.prisma.environment.findUnique({ where: { id: environmentId } });
+        if (!environment) throw new NotFoundException('Environment not found');
 
         return this.prisma.label.create({
             data: {
                 ...data,
-                boardId,
+                environmentId,
             },
         });
     }
 
-    findAllByBoard(boardId: string) {
+    findAllByEnvironment(environmentId: string) {
         return this.prisma.label.findMany({
-            where: { boardId },
+            where: { environmentId },
         });
     }
 

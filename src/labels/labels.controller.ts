@@ -18,9 +18,9 @@ export class LabelsController {
     }
 
     @Get()
-    @ApiOperation({ summary: 'Get all labels for a board' })
-    findAll(@Query('boardId') boardId: string) {
-        return this.labelsService.findAllByBoard(boardId);
+    @ApiOperation({ summary: 'Get all labels for an environment' })
+    findAll(@Query('environmentId') environmentId: string) {
+        return this.labelsService.findAllByEnvironment(environmentId);
     }
 
     @Get(':id')

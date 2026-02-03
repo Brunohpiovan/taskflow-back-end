@@ -36,6 +36,7 @@ model Environment {
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   boards      Board[]
+  labels      Label[]
 
   @@map("environments")
 }
@@ -50,7 +51,6 @@ model Board {
   updatedAt      DateTime @updatedAt @map("updated_at")
   environment    Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   cards          Card[]
-  labels         Label[]
 
   @@map("boards")
 }
@@ -74,12 +74,12 @@ model Card {
 }
 
 model Label {
-  id      String @id @default(uuid())
-  boardId String @map("board_id")
-  name    String
-  color   String
-  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  cards   Card[]
+  id            String      @id @default(uuid())
+  environmentId String      @map("environment_id")
+  name          String
+  color         String
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  cards         Card[]
 
   @@map("labels")
 }

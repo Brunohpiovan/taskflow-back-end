@@ -34,7 +34,7 @@ const cardDetailSelect = {
       id: true,
       name: true,
       color: true,
-      boardId: true,
+      environmentId: true,
     },
   },
   dueDate: true,

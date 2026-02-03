@@ -19,5 +19,5 @@ export class CreateLabelDto {
     @ApiProperty()
     @IsString()
     @IsNotEmpty()
-    boardId: string;
+    environmentId: string;
 }
