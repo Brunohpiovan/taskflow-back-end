@@ -30,8 +30,6 @@ model Environment {
   userId      String   @map("user_id")
   name        String
   description String?
-  color       String?
-  icon        String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

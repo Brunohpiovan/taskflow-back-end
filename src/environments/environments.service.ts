@@ -7,16 +7,12 @@ const environmentSelect = {
   id: true,
   name: true,
   description: true,
-  color: true,
-  icon: true,
 } as const;
 
 export interface EnvironmentResponse {
   id: string;
   name: string;
   description?: string;
-  color?: string;
-  icon?: string;
   boardsCount?: number;
   cardsCount?: number;
 }
@@ -86,9 +82,8 @@ export class EnvironmentsService {
         userId,
         name: dto.name.trim(),
         description: dto.description?.trim(),
-        color: dto.color?.trim(),
-        icon: dto.icon?.trim(),
       },
+
       select: environmentSelect,
     });
     return this.toResponse(environment);
@@ -105,8 +100,6 @@ export class EnvironmentsService {
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
         ...(dto.description !== undefined && { description: dto.description?.trim() }),
-        ...(dto.color !== undefined && { color: dto.color?.trim() }),
-        ...(dto.icon !== undefined && { icon: dto.icon?.trim() }),
       },
       select: environmentSelect,
     });
@@ -122,7 +115,7 @@ export class EnvironmentsService {
     id: string,
     userId: string,
   ): Promise<
-    { id: string; name: string; description: string | null; color: string | null; icon: string | null } & {
+    { id: string; name: string; description: string | null } & {
       _count?: { boards: number };
       boards?: Array<{ _count: { cards: number } }>;
     }
@@ -141,18 +134,16 @@ export class EnvironmentsService {
     return environment;
   }
 
-  private toResponse(e: { id: string; name: string; description?: string | null; color?: string | null; icon?: string | null }): EnvironmentResponse {
+  private toResponse(e: { id: string; name: string; description?: string | null }): EnvironmentResponse {
     return {
       id: e.id,
       name: e.name,
       description: e.description ?? undefined,
-      color: e.color ?? undefined,
-      icon: e.icon ?? undefined,
     };
   }
 
   private toResponseWithCounts(
-    e: { id: string; name: string; description?: string | null; color?: string | null; icon?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
+    e: { id: string; name: string; description?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
   ): EnvironmentResponse {
     const boardsCount = e._count?.boards;
     const cardsCount = e.boards?.reduce(

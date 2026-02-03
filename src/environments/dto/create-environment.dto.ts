@@ -12,13 +12,4 @@ export class CreateEnvironmentDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  color?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  icon?: string;
 }
