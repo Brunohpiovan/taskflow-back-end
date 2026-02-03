@@ -24,7 +24,13 @@ export class EnvironmentsController {
   constructor(
     private readonly environmentsService: EnvironmentsService,
     private readonly boardsService: BoardsService,
-  ) {}
+  ) { }
+
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Listar ambientes para dashboard (dados otimizados)' })
+  findAllDashboard(@CurrentUser() user: JwtPayload) {
+    return this.environmentsService.findAllDashboard(user.sub);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Listar ambientes do usuário' })

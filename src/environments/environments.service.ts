@@ -21,9 +21,17 @@ export interface EnvironmentResponse {
   cardsCount?: number;
 }
 
+export interface DashboardEnvironmentResponse {
+  id: string;
+  name: string;
+  description?: string;
+  boardsCount: number;
+  cardsCount: number;
+}
+
 @Injectable()
 export class EnvironmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findAll(userId: string): Promise<EnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
@@ -38,6 +46,30 @@ export class EnvironmentsService {
       orderBy: { createdAt: 'asc' },
     });
     return environments.map((e) => this.toResponseWithCounts(e));
+  }
+
+  async findAllDashboard(userId: string): Promise<DashboardEnvironmentResponse[]> {
+    const environments = await this.prisma.environment.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        _count: { select: { boards: true } },
+        boards: {
+          select: { _count: { select: { cards: true } } },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return environments.map((e) => ({
+      id: e.id,
+      name: e.name,
+      description: e.description ?? undefined,
+      boardsCount: e._count.boards,
+      cardsCount: e.boards.reduce((sum, b) => sum + b._count.cards, 0),
+    }));
   }
 
   async findOne(id: string, userId: string): Promise<EnvironmentResponse> {
