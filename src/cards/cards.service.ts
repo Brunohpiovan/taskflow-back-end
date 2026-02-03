@@ -79,6 +79,29 @@ export class CardsService {
     return cards.map((c) => this.toListResponse(c));
   }
 
+  async findOne(id: string, userId: string): Promise<CardResponse> {
+    const card = await this.prisma.card.findUnique({
+      where: { id },
+      select: cardDetailSelect,
+    });
+
+    if (!card) {
+      throw new NotFoundException('Card não encontrado');
+    }
+
+    // Verify user has access to this card
+    const board = await this.prisma.board.findUnique({
+      where: { id: card.boardId },
+      select: { environment: { select: { userId: true } } },
+    });
+
+    if (!board || board.environment.userId !== userId) {
+      throw new NotFoundException('Card não encontrado');
+    }
+
+    return this.toResponse(card);
+  }
+
   async create(userId: string, dto: CreateCardDto): Promise<CardResponse> {
     await this.boardsService.findOneForUser(dto.boardId, userId);
     const position =

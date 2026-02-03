@@ -18,23 +18,40 @@ export class CommentsService {
                 cardId,
                 userId,
             },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } },
+            select: {
+                id: true,
+                content: true,
+                createdAt: true,
+                userId: true,
+                user: {
+                    select: {
+                        name: true,
+                        avatar: true,
+                    },
+                },
             },
         });
 
         return {
             ...comment,
             createdAt: comment.createdAt.toISOString(),
-            updatedAt: comment.updatedAt.toISOString(),
         };
     }
 
     async findAllByCard(cardId: string) {
         const comments = await this.prisma.comment.findMany({
             where: { cardId },
-            include: {
-                user: { select: { id: true, name: true, avatar: true } },
+            select: {
+                id: true,
+                content: true,
+                createdAt: true,
+                userId: true,
+                user: {
+                    select: {
+                        name: true,
+                        avatar: true,
+                    },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -42,7 +59,6 @@ export class CommentsService {
         return comments.map(comment => ({
             ...comment,
             createdAt: comment.createdAt.toISOString(),
-            updatedAt: comment.updatedAt.toISOString(),
         }));
     }
 

@@ -22,7 +22,16 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 @ApiBearerAuth('JWT')
 @Controller('cards')
 export class CardsController {
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(private readonly cardsService: CardsService) { }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar detalhes completos de um card' })
+  findOne(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.cardsService.findOne(id, user.sub);
+  }
 
   @Post()
   @ApiOperation({ summary: 'Criar card' })
