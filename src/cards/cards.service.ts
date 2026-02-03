@@ -7,15 +7,48 @@ import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
 import type { MoveCardResponseDto } from './dto/move-card-response.dto';
 
-const cardSelect = {
+// Optimized select for card listing - only returns necessary fields
+const cardListSelect = {
   id: true,
   title: true,
   description: true,
   position: true,
   boardId: true,
-  labels: true, // This now fetches relation Label[]
+  dueDate: true,
+  labels: {
+    select: {
+      color: true,
+    },
+  },
+} as const;
+
+// Full select for card details
+const cardDetailSelect = {
+  id: true,
+  title: true,
+  description: true,
+  position: true,
+  boardId: true,
+  labels: {
+    select: {
+      id: true,
+      name: true,
+      color: true,
+      boardId: true,
+    },
+  },
   dueDate: true,
 } as const;
+
+export interface CardListResponse {
+  id: string;
+  title: string;
+  description?: string;
+  position: number;
+  boardId: string;
+  labels: { color: string }[];
+  dueDate?: string;
+}
 
 export interface CardResponse {
   id: string;
@@ -36,14 +69,14 @@ export class CardsService {
     private activityLogsService: ActivityLogsService,
   ) { }
 
-  async findByBoardId(boardId: string, userId: string): Promise<CardResponse[]> {
+  async findByBoardId(boardId: string, userId: string): Promise<CardListResponse[]> {
     await this.boardsService.findOneForUser(boardId, userId);
     const cards = await this.prisma.card.findMany({
       where: { boardId },
-      select: cardSelect,
+      select: cardListSelect,
       orderBy: { position: 'asc' },
     });
-    return cards.map((c) => this.toResponse(c));
+    return cards.map((c) => this.toListResponse(c));
   }
 
   async create(userId: string, dto: CreateCardDto): Promise<CardResponse> {
@@ -63,7 +96,7 @@ export class CardsService {
           connect: dto.labels.map((id) => ({ id })),
         } : undefined,
       },
-      select: cardSelect,
+      select: cardDetailSelect,
     });
 
     await this.activityLogsService.logAction(card.id, userId, 'CREATED', `Card criado: ${card.title}`);
@@ -93,7 +126,7 @@ export class CardsService {
           },
         }),
       },
-      select: cardSelect,
+      select: cardDetailSelect,
     });
 
     await this.activityLogsService.logAction(card.id, userId, 'UPDATED', 'Card atualizado');
@@ -221,6 +254,26 @@ export class CardsService {
       throw new NotFoundException('Card não encontrado');
     }
     return { id: card.id, boardId: card.boardId, position: card.position };
+  }
+
+  private toListResponse(c: {
+    id: string;
+    title: string;
+    description?: string | null;
+    position: number;
+    boardId: string;
+    labels?: { color: string }[];
+    dueDate?: Date | null;
+  }): CardListResponse {
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description ?? undefined,
+      position: c.position,
+      boardId: c.boardId,
+      labels: c.labels ?? [],
+      dueDate: c.dueDate?.toISOString(),
+    };
   }
 
   private toResponse(c: {
