@@ -31,6 +31,7 @@ model Environment {
   id          String   @id @default(uuid())
   userId      String   @map("user_id")
   name        String
+  slug        String   @unique
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -42,16 +43,18 @@ model Environment {
 }
 
 model Board {
-  id             String   @id @default(uuid())
-  environmentId  String   @map("environment_id")
+  id             String      @id @default(uuid())
+  environmentId  String      @map("environment_id")
   name           String
+  slug           String
   description    String?
-  position       Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  position       Int         @default(0)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
   environment    Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   cards          Card[]
 
+  @@unique([environmentId, slug])
   @@map("boards")
 }
 

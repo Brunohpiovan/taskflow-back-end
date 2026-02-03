@@ -2,15 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
 import { UpdateEnvironmentDto } from './dto/update-environment.dto';
+import { generateSlug, ensureUniqueSlug } from '../common/utils/slug.utils';
 
 const environmentSelect = {
   id: true,
+  slug: true,
   name: true,
   description: true,
 } as const;
 
 export interface EnvironmentResponse {
   id: string;
+  slug: string;
   name: string;
   description?: string;
   boardsCount?: number;
@@ -19,6 +22,7 @@ export interface EnvironmentResponse {
 
 export interface DashboardEnvironmentResponse {
   id: string;
+  slug: string;
   name: string;
   description?: string;
   boardsCount: number;
@@ -49,6 +53,7 @@ export class EnvironmentsService {
       where: { userId },
       select: {
         id: true,
+        slug: true,
         name: true,
         description: true,
         _count: { select: { boards: true } },
@@ -61,6 +66,7 @@ export class EnvironmentsService {
 
     return environments.map((e) => ({
       id: e.id,
+      slug: e.slug,
       name: e.name,
       description: e.description ?? undefined,
       boardsCount: e._count.boards,
@@ -73,14 +79,51 @@ export class EnvironmentsService {
     return this.toResponseWithCounts(environment);
   }
 
+  async findBySlug(slug: string, userId: string): Promise<EnvironmentResponse> {
+    const environment = await this.prisma.environment.findFirst({
+      where: { slug, userId },
+      select: {
+        ...environmentSelect,
+        _count: { select: { boards: true } },
+        boards: {
+          select: { _count: { select: { cards: true } } },
+        },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundException('Ambiente não encontrado');
+    }
+
+    return this.toResponseWithCounts(environment);
+  }
+
   async create(
     userId: string,
     dto: CreateEnvironmentDto,
   ): Promise<EnvironmentResponse> {
+    // Generate base slug from name
+    const baseSlug = generateSlug(dto.name);
+
+    // Get global existing slugs that start with the base slug to ensure uniqueness across the system
+    const existingEnvs = await this.prisma.environment.findMany({
+      where: {
+        slug: {
+          startsWith: baseSlug,
+        },
+      },
+      select: { slug: true },
+    });
+    const existingSlugs = existingEnvs.map((e) => e.slug);
+
+    // Ensure slug is unique
+    const slug = ensureUniqueSlug(baseSlug, existingSlugs);
+
     const environment = await this.prisma.environment.create({
       data: {
         userId,
         name: dto.name.trim(),
+        slug,
         description: dto.description?.trim(),
       },
 
@@ -95,12 +138,32 @@ export class EnvironmentsService {
     dto: UpdateEnvironmentDto,
   ): Promise<EnvironmentResponse> {
     await this.findOneOrThrow(id, userId);
+
+    const updateData: any = {
+      ...(dto.name !== undefined && { name: dto.name.trim() }),
+      ...(dto.description !== undefined && { description: dto.description?.trim() }),
+    };
+
+    // Regenerate slug if name is changing
+    if (dto.name !== undefined) {
+      const baseSlug = generateSlug(dto.name);
+      // Check globally for slug collisions, excluding the current environment
+      const existingEnvs = await this.prisma.environment.findMany({
+        where: {
+          slug: {
+            startsWith: baseSlug,
+          },
+          NOT: { id },
+        },
+        select: { slug: true },
+      });
+      const existingSlugs = existingEnvs.map((e) => e.slug);
+      updateData.slug = ensureUniqueSlug(baseSlug, existingSlugs);
+    }
+
     const environment = await this.prisma.environment.update({
       where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.description !== undefined && { description: dto.description?.trim() }),
-      },
+      data: updateData,
       select: environmentSelect,
     });
     return this.toResponse(environment);
@@ -114,12 +177,7 @@ export class EnvironmentsService {
   private async findOneOrThrow(
     id: string,
     userId: string,
-  ): Promise<
-    { id: string; name: string; description: string | null } & {
-      _count?: { boards: number };
-      boards?: Array<{ _count: { cards: number } }>;
-    }
-  > {
+  ): Promise<{ id: string; slug: string; name: string; description: string | null } & { _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> }> {
     const environment = await this.prisma.environment.findFirst({
       where: { id, userId },
       select: {
@@ -134,16 +192,17 @@ export class EnvironmentsService {
     return environment;
   }
 
-  private toResponse(e: { id: string; name: string; description?: string | null }): EnvironmentResponse {
+  private toResponse(e: { id: string; slug: string; name: string; description?: string | null }): EnvironmentResponse {
     return {
       id: e.id,
+      slug: e.slug,
       name: e.name,
       description: e.description ?? undefined,
     };
   }
 
   private toResponseWithCounts(
-    e: { id: string; name: string; description?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
+    e: { id: string; slug: string; name: string; description?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
   ): EnvironmentResponse {
     const boardsCount = e._count?.boards;
     const cardsCount = e.boards?.reduce(

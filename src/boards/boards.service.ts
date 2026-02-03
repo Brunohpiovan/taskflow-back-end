@@ -2,11 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
+import { generateSlug, ensureUniqueSlug } from '../common/utils/slug.utils';
 
 const boardSelect = {
   id: true,
   environmentId: true,
   name: true,
+  slug: true,
   description: true,
   position: true,
 } as const;
@@ -14,6 +16,7 @@ const boardSelect = {
 export interface BoardResponse {
   id: string;
   name: string;
+  slug: string;
   description?: string;
   position: number;
   environmentId: string;
@@ -22,7 +25,7 @@ export interface BoardResponse {
 
 @Injectable()
 export class BoardsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findByEnvironmentId(
     environmentId: string,
@@ -40,15 +43,52 @@ export class BoardsService {
     return boards.map((b) => this.toResponse(b));
   }
 
+  async findBySlug(
+    envSlug: string,
+    boardSlug: string,
+    userId: string,
+  ): Promise<BoardResponse> {
+    const board = await this.prisma.board.findFirst({
+      where: {
+        slug: boardSlug,
+        environment: {
+          slug: envSlug,
+          userId,
+        },
+      },
+      select: {
+        ...boardSelect,
+        _count: { select: { cards: true } },
+      },
+    });
+
+    if (!board) {
+      throw new NotFoundException('Board não encontrado');
+    }
+
+    return this.toResponse(board);
+  }
+
   async create(userId: string, dto: CreateBoardDto): Promise<BoardResponse> {
     await this.assertEnvironmentBelongsToUser(dto.environmentId, userId);
     const position =
       dto.position ??
       (await this.prisma.board.count({ where: { environmentId: dto.environmentId } }));
+
+    // Generate unique slug for this environment
+    const baseSlug = generateSlug(dto.name);
+    const existingBoards = await this.prisma.board.findMany({
+      where: { environmentId: dto.environmentId },
+      select: { slug: true },
+    });
+    const existingSlugs = existingBoards.map((b) => b.slug);
+    const slug = ensureUniqueSlug(baseSlug, existingSlugs);
+
     const board = await this.prisma.board.create({
       data: {
         environmentId: dto.environmentId,
         name: dto.name.trim(),
+        slug,
         description: dto.description?.trim(),
         position,
       },
@@ -62,14 +102,28 @@ export class BoardsService {
     userId: string,
     dto: UpdateBoardDto,
   ): Promise<BoardResponse> {
-    await this.findOneOrThrow(id, userId);
+    const board = await this.findOneOrThrow(id, userId);
+
+    const updateData: any = {
+      ...(dto.name !== undefined && { name: dto.name.trim() }),
+      ...(dto.description !== undefined && { description: dto.description?.trim() }),
+      ...(dto.position !== undefined && { position: dto.position }),
+    };
+
+    // Regenerate slug if name is changing
+    if (dto.name !== undefined) {
+      const baseSlug = generateSlug(dto.name);
+      const existingBoards = await this.prisma.board.findMany({
+        where: { environmentId: board.environmentId, NOT: { id } },
+        select: { slug: true },
+      });
+      const existingSlugs = existingBoards.map((b) => b.slug);
+      updateData.slug = ensureUniqueSlug(baseSlug, existingSlugs);
+    }
+
     const updated = await this.prisma.board.update({
       where: { id },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.description !== undefined && { description: dto.description?.trim() }),
-        ...(dto.position !== undefined && { position: dto.position }),
-      },
+      data: updateData,
       select: boardSelect,
     });
     return this.toResponse(updated);
@@ -125,10 +179,11 @@ export class BoardsService {
   }
 
   private toResponse(
-    b: { id: string; name: string; description?: string | null; position: number; environmentId: string; _count?: { cards: number } },
+    b: { id: string; slug: string; name: string; description?: string | null; position: number; environmentId: string; _count?: { cards: number } },
   ): BoardResponse {
     return {
       id: b.id,
+      slug: b.slug,
       name: b.name,
       description: b.description ?? undefined,
       position: b.position,

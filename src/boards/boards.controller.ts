@@ -24,7 +24,7 @@ export class BoardsController {
   constructor(
     private readonly boardsService: BoardsService,
     private readonly cardsService: CardsService,
-  ) {}
+  ) { }
 
   @Get(':boardId/cards')
   @ApiOperation({ summary: 'Listar cards de um board' })
@@ -33,6 +33,16 @@ export class BoardsController {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.cardsService.findByBoardId(boardId, user.sub);
+  }
+
+  @Get('slug/:envSlug/:boardSlug')
+  @ApiOperation({ summary: 'Obter board pelo slug' })
+  findBySlug(
+    @Param('envSlug') envSlug: string,
+    @Param('boardSlug') boardSlug: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.boardsService.findBySlug(envSlug, boardSlug, user.sub);
   }
 
   @Post()

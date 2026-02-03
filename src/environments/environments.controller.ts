@@ -47,6 +47,15 @@ export class EnvironmentsController {
     return this.boardsService.findByEnvironmentId(environmentId, user.sub);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Obter ambiente pelo slug' })
+  findBySlug(
+    @Param('slug') slug: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.environmentsService.findBySlug(slug, user.sub);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buscar ambiente por ID' })
   findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
