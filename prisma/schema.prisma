@@ -21,6 +21,8 @@ model User {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
   environments Environment[]
+  comments     Comment[]
+  activityLogs ActivityLog[]
 
   @@map("users")
 }
@@ -48,6 +50,7 @@ model Board {
   updatedAt      DateTime @updatedAt @map("updated_at")
   environment    Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
   cards          Card[]
+  labels         Label[]
 
   @@map("boards")
 }
@@ -58,11 +61,52 @@ model Card {
   title       String
   description String?   @db.VarChar(500)
   position    Int       @default(0)
-  labels      Json?     // array of strings
   dueDate     DateTime? @map("due_date")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   board       Board     @relation(fields: [boardId], references: [id], onDelete: Cascade)
 
+  labels      Label[]
+  comments    Comment[]
+  activityLogs ActivityLog[]
+
   @@map("cards")
+}
+
+model Label {
+  id      String @id @default(uuid())
+  boardId String @map("board_id")
+  name    String
+  color   String
+  board   Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards   Card[]
+
+  @@map("labels")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  userId    String   @map("user_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  userId    String   @map("user_id")
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
 }

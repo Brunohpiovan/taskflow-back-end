@@ -9,6 +9,9 @@ import { EnvironmentsModule } from './environments/environments.module';
 import { BoardsModule } from './boards/boards.module';
 import { CardsModule } from './cards/cards.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { CommentsModule } from './comments/comments.module';
+import { LabelsModule } from './labels/labels.module';
+import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     BoardsModule,
     CardsModule,
     EnvironmentsModule,
+    CommentsModule,
+    LabelsModule,
+    ActivityLogsModule,
   ],
   controllers: [],
   providers: [
@@ -31,4 +37,4 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }
