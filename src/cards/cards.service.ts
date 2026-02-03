@@ -15,11 +15,7 @@ const cardListSelect = {
   position: true,
   boardId: true,
   dueDate: true,
-  labels: {
-    select: {
-      color: true,
-    },
-  },
+  completed: true,
 } as const;
 
 // Full select for card details
@@ -38,6 +34,7 @@ const cardDetailSelect = {
     },
   },
   dueDate: true,
+  completed: true,
 } as const;
 
 export interface CardListResponse {
@@ -48,6 +45,7 @@ export interface CardListResponse {
   boardId: string;
   labels: { color: string }[];
   dueDate?: string;
+  completed: boolean;
 }
 
 export interface CardResponse {
@@ -58,6 +56,7 @@ export interface CardResponse {
   boardId: string;
   labels: { id: string; name: string; color: string }[];
   dueDate?: string;
+  completed: boolean;
 }
 
 @Injectable()
@@ -143,6 +142,7 @@ export class CardsService {
         ...(dto.dueDate !== undefined && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
         }),
+        ...(dto.completed !== undefined && { completed: dto.completed }),
         ...(dto.labels !== undefined && {
           labels: {
             set: dto.labels.map((labelId) => ({ id: labelId })),
@@ -287,6 +287,7 @@ export class CardsService {
     boardId: string;
     labels?: { color: string }[];
     dueDate?: Date | null;
+    completed: boolean;
   }): CardListResponse {
     return {
       id: c.id,
@@ -296,6 +297,7 @@ export class CardsService {
       boardId: c.boardId,
       labels: c.labels ?? [],
       dueDate: c.dueDate?.toISOString(),
+      completed: c.completed,
     };
   }
 
@@ -307,6 +309,7 @@ export class CardsService {
     boardId: string;
     labels?: { id: string; name: string; color: string }[];
     dueDate?: Date | null;
+    completed: boolean;
   }): CardResponse {
     return {
       id: c.id,
@@ -316,6 +319,7 @@ export class CardsService {
       boardId: c.boardId,
       labels: c.labels ?? [],
       dueDate: c.dueDate?.toISOString(),
+      completed: c.completed,
     };
   }
 }

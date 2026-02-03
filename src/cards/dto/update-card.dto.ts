@@ -42,4 +42,8 @@ export class UpdateCardDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  completed?: boolean;
 }

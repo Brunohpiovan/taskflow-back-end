@@ -63,6 +63,7 @@ model Card {
   boardId     String    @map("board_id")
   title       String
   description String?   @db.VarChar(500)
+  completed   Boolean   @default(false)
   position    Int       @default(0)
   dueDate     DateTime? @map("due_date")
   createdAt   DateTime  @default(now()) @map("created_at")
