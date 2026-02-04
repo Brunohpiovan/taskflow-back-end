@@ -19,7 +19,10 @@ export class UpdateProfileDto {
   @MinLength(6, { message: 'Senha deve ter no mínimo 6 caracteres' })
   password?: string;
 
-  @ApiPropertyOptional({ example: 'novaSenha123', description: 'Deve ser igual a password' })
+  @ApiPropertyOptional({
+    example: 'novaSenha123',
+    description: 'Deve ser igual a password',
+  })
   @IsOptional()
   @IsString()
   confirmPassword?: string;

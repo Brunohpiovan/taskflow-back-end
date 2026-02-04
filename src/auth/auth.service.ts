@@ -25,7 +25,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
-  ) { }
+  ) {}
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.usersService.findByEmail(dto.email);
@@ -33,9 +33,14 @@ export class AuthService {
       throw new UnauthorizedException('Email ou senha inválidos');
     }
     if (!user.passwordHash) {
-      throw new UnauthorizedException('Esta conta usa login com Google ou GitHub. Use um deles para entrar.');
+      throw new UnauthorizedException(
+        'Esta conta usa login com Google ou GitHub. Use um deles para entrar.',
+      );
     }
-    const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
+    const isPasswordValid = await bcrypt.compare(
+      dto.password,
+      user.passwordHash,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Email ou senha inválidos');
     }
@@ -52,9 +57,19 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
-  async validateOAuthUser(provider: string, profile: { id: string; emails?: { value: string }[]; displayName?: string; photos?: { value: string }[] }): Promise<AuthResponseDto> {
-    const email = profile.emails?.[0]?.value ?? `${profile.id}@${provider}.oauth`;
-    const name = profile.displayName?.trim() ?? email.split('@')[0] ?? 'Usuário';
+  async validateOAuthUser(
+    provider: string,
+    profile: {
+      id: string;
+      emails?: { value: string }[];
+      displayName?: string;
+      photos?: { value: string }[];
+    },
+  ): Promise<AuthResponseDto> {
+    const email =
+      profile.emails?.[0]?.value ?? `${profile.id}@${provider}.oauth`;
+    const name =
+      profile.displayName?.trim() ?? email.split('@')[0] ?? 'Usuário';
     const avatar = profile.photos?.[0]?.value ?? null;
     const user = await this.usersService.findOrCreateByOAuth({
       provider,
@@ -135,7 +150,9 @@ export class AuthService {
     const expires = new Date();
     expires.setHours(expires.getHours() + 1); // 1 hour
 
-    console.log(`[ForgotPassword] Generated token for ${email}, updating DB...`);
+    console.log(
+      `[ForgotPassword] Generated token for ${email}, updating DB...`,
+    );
     try {
       await this.usersService.updateResetToken(user.id, token, expires);
       console.log(`[ForgotPassword] DB updated. Sending email...`);
@@ -151,7 +168,11 @@ export class AuthService {
     // We need a method in UsersService to find by token
     const user = await this.usersService.findByResetToken(token);
 
-    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+    if (
+      !user ||
+      !user.resetPasswordExpires ||
+      user.resetPasswordExpires < new Date()
+    ) {
       throw new BadRequestException('Token inválido ou expirado');
     }
 
@@ -167,11 +188,13 @@ export class AuthService {
     avatar: string | null;
   }): Promise<AuthResponseDto> {
     const expiresIn = this.configService.get<string>('jwt.expiresIn') ?? '7d';
-    const expiresInSeconds = expiresIn === '7d' ? 604800 : parseInt(expiresIn, 10) || 604800;
+    const expiresInSeconds =
+      expiresIn === '7d' ? 604800 : parseInt(expiresIn, 10) || 604800;
     const token = this.jwtService.sign(
       { sub: user.id, email: user.email },
       {
-        secret: this.configService.get<string>('jwt.secret') ?? 'default-secret',
+        secret:
+          this.configService.get<string>('jwt.secret') ?? 'default-secret',
         expiresIn: expiresInSeconds,
       },
     );

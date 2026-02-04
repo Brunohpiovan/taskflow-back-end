@@ -87,9 +87,9 @@ describe('BoardsService', () => {
   describe('remove', () => {
     it('should throw NotFoundException when board does not belong to user', async () => {
       mockPrisma.board.findFirst.mockResolvedValue(null);
-      await expect(
-        service.remove('board-1', 'user-1'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove('board-1', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

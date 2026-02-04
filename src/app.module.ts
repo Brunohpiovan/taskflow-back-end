@@ -12,6 +12,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { CommentsModule } from './comments/comments.module';
 import { LabelsModule } from './labels/labels.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -19,9 +20,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
       isGlobal: true,
       load: [configuration],
     }),
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-    ]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
     PrismaModule,
     AuthModule,
     BoardsModule,
@@ -30,6 +29,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
     CommentsModule,
     LabelsModule,
     ActivityLogsModule,
+    EventsModule,
   ],
   controllers: [],
   providers: [
@@ -37,4 +37,4 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}

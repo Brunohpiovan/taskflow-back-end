@@ -8,11 +8,11 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseGuards(JwtAuthGuard)
 @Controller('activity-logs')
 export class ActivityLogsController {
-    constructor(private readonly activityLogsService: ActivityLogsService) { }
+  constructor(private readonly activityLogsService: ActivityLogsService) {}
 
-    @ApiOperation({ summary: 'Buscar logs de um card' })
-    @Get()
-    async getByCardId(@Query('cardId') cardId: string) {
-        return this.activityLogsService.getByCardId(cardId);
-    }
+  @ApiOperation({ summary: 'Buscar logs de um card' })
+  @Get()
+  async getByCardId(@Query('cardId') cardId: string) {
+    return this.activityLogsService.getByCardId(cardId);
+  }
 }

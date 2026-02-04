@@ -24,7 +24,7 @@ export class BoardsController {
   constructor(
     private readonly boardsService: BoardsService,
     private readonly cardsService: CardsService,
-  ) { }
+  ) {}
 
   @Get(':boardId/cards')
   @ApiOperation({ summary: 'Listar cards de um board' })
@@ -47,10 +47,7 @@ export class BoardsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar board' })
-  create(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateBoardDto,
-  ) {
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateBoardDto) {
     return this.boardsService.create(user.sub, dto);
   }
 

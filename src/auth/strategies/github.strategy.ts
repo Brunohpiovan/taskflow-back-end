@@ -20,7 +20,10 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
   ) {
     const clientID = configService.get<string>('github.clientId');
     const clientSecret = configService.get<string>('github.clientSecret');
-    const backendUrl = configService.get<string>('backendUrl', 'http://localhost:3001');
+    const backendUrl = configService.get<string>(
+      'backendUrl',
+      'http://localhost:3001',
+    );
     const apiPrefix = configService.get<string>('apiPrefix', 'api');
     super({
       clientID: clientID ?? '',

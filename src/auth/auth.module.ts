@@ -18,7 +18,8 @@ import { MailService } from '../services/mail.service';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const expiresIn = configService.get<string>('jwt.expiresIn') ?? '7d';
-        const expiresInSeconds = expiresIn === '7d' ? 604800 : parseInt(expiresIn, 10) || 604800;
+        const expiresInSeconds =
+          expiresIn === '7d' ? 604800 : parseInt(expiresIn, 10) || 604800;
         return {
           secret: configService.get<string>('jwt.secret') ?? 'default-secret',
           signOptions: { expiresIn: expiresInSeconds },
@@ -28,7 +29,13 @@ import { MailService } from '../services/mail.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GitHubStrategy, MailService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    GitHubStrategy,
+    MailService,
+  ],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

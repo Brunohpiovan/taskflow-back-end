@@ -29,9 +29,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status = isHttpException
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
-    const exceptionResponse = isHttpException
-      ? exception.getResponse()
-      : null;
+    const exceptionResponse = isHttpException ? exception.getResponse() : null;
 
     let message: string;
     let details: unknown;
@@ -40,10 +38,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       const body = exceptionResponse as Record<string, unknown>;
       const rawMessage = body.message;
       if (Array.isArray(rawMessage)) {
-        message = rawMessage.length > 0 ? String(rawMessage[0]) : 'Dados inválidos';
+        message =
+          rawMessage.length > 0 ? String(rawMessage[0]) : 'Dados inválidos';
         details = rawMessage;
       } else {
-        message = (rawMessage as string) ?? (body.error as string) ?? 'Erro interno';
+        message =
+          (rawMessage as string) ?? (body.error as string) ?? 'Erro interno';
         details = body.details;
       }
     } else if (typeof exceptionResponse === 'string') {

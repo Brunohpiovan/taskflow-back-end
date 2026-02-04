@@ -24,10 +24,12 @@ export class EnvironmentsController {
   constructor(
     private readonly environmentsService: EnvironmentsService,
     private readonly boardsService: BoardsService,
-  ) { }
+  ) {}
 
   @Get('dashboard')
-  @ApiOperation({ summary: 'Listar ambientes para dashboard (dados otimizados)' })
+  @ApiOperation({
+    summary: 'Listar ambientes para dashboard (dados otimizados)',
+  })
   findAllDashboard(@CurrentUser() user: JwtPayload) {
     return this.environmentsService.findAllDashboard(user.sub);
   }
@@ -49,10 +51,7 @@ export class EnvironmentsController {
 
   @Get('slug/:slug')
   @ApiOperation({ summary: 'Obter ambiente pelo slug' })
-  findBySlug(
-    @Param('slug') slug: string,
-    @CurrentUser() user: JwtPayload,
-  ) {
+  findBySlug(@Param('slug') slug: string, @CurrentUser() user: JwtPayload) {
     return this.environmentsService.findBySlug(slug, user.sub);
   }
 
@@ -64,10 +63,7 @@ export class EnvironmentsController {
 
   @Post()
   @ApiOperation({ summary: 'Criar ambiente' })
-  create(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateEnvironmentDto,
-  ) {
+  create(@CurrentUser() user: JwtPayload, @Body() dto: CreateEnvironmentDto) {
     return this.environmentsService.create(user.sub, dto);
   }
 

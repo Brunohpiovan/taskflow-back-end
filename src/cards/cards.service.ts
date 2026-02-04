@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardsService } from '../boards/boards.service';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service';
@@ -66,6 +71,8 @@ export interface CardResponse {
   completed: boolean;
 }
 
+import { EventsGateway } from '../events/events.gateway';
+
 @Injectable()
 export class CardsService {
   constructor(
@@ -73,9 +80,13 @@ export class CardsService {
     @Inject(forwardRef(() => BoardsService))
     private boardsService: BoardsService,
     private activityLogsService: ActivityLogsService,
+    private eventsGateway: EventsGateway,
   ) { }
 
-  async findByBoardId(boardId: string, userId: string): Promise<CardListResponse[]> {
+  async findByBoardId(
+    boardId: string,
+    userId: string,
+  ): Promise<CardListResponse[]> {
     await this.boardsService.findOneForUser(boardId, userId);
     const cards = await this.prisma.card.findMany({
       where: { boardId },
@@ -98,10 +109,22 @@ export class CardsService {
     // Verify user has access to this card
     const board = await this.prisma.board.findUnique({
       where: { id: card.boardId },
-      select: { environment: { select: { userId: true } } },
+      select: {
+        environment: {
+          select: {
+            userId: true,
+            members: { where: { userId }, select: { userId: true } },
+          },
+        },
+      },
     });
 
-    if (!board || board.environment.userId !== userId) {
+    if (!board) throw new NotFoundException('Card não encontrado');
+
+    const isOwner = board.environment.userId === userId;
+    const isMember = board.environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
       throw new NotFoundException('Card não encontrado');
     }
 
@@ -121,14 +144,30 @@ export class CardsService {
         description: dto.description?.trim(),
         position,
         dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-        labels: dto.labels ? {
-          connect: dto.labels.map((id) => ({ id })),
-        } : undefined,
+        labels: dto.labels
+          ? {
+            connect: dto.labels.map((id) => ({ id })),
+          }
+          : undefined,
       },
       select: cardDetailSelect,
     });
 
-    await this.activityLogsService.logAction(card.id, userId, 'CREATED', `Card criado: ${card.title}`);
+    await this.activityLogsService.logAction(
+      card.id,
+      userId,
+      'CREATED',
+      `Card criado: ${card.title}`,
+    );
+
+    // Fetch envId for event
+    const board = await this.prisma.board.findUnique({
+      where: { id: dto.boardId },
+      select: { environmentId: true },
+    });
+    if (board) {
+      this.eventsGateway.emitCardCreated(board.environmentId, { ...card, userId });
+    }
 
     return this.toResponse(card);
   }
@@ -144,7 +183,9 @@ export class CardsService {
       where: { id },
       data: {
         ...(dto.title !== undefined && { title: dto.title.trim() }),
-        ...(dto.description !== undefined && { description: dto.description?.trim() }),
+        ...(dto.description !== undefined && {
+          description: dto.description?.trim(),
+        }),
         ...(dto.position !== undefined && { position: dto.position }),
         ...(dto.dueDate !== undefined && {
           dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
@@ -159,7 +200,20 @@ export class CardsService {
       select: cardDetailSelect,
     });
 
-    await this.activityLogsService.logAction(card.id, userId, 'UPDATED', 'Card atualizado');
+    await this.activityLogsService.logAction(
+      card.id,
+      userId,
+      'UPDATED',
+      'Card atualizado',
+    );
+
+    const board = await this.prisma.board.findUnique({
+      where: { id: card.boardId },
+      select: { environmentId: true },
+    });
+    if (board) {
+      this.eventsGateway.emitCardUpdated(board.environmentId, { ...card, userId });
+    }
 
     return this.toResponse(card);
   }
@@ -173,7 +227,7 @@ export class CardsService {
     await this.boardsService.findOneForUser(dto.targetBoardId, userId);
 
     // ... existing transaction logic ...
-    // Re-implementing transaction logic is verbose to replace. 
+    // Re-implementing transaction logic is verbose to replace.
     // I'll try to just wrap the existing logic or simpler: assume move is complex and just insert the log creation after.
 
     // Actually, since I have to replace the whole file content block or chunk.
@@ -185,7 +239,12 @@ export class CardsService {
   }
 
   // Refactored move to include logging
-  private async _moveWithLog(id: string, userId: string, dto: MoveCardDto, card: { id: string, boardId: string, position: number }) {
+  private async _moveWithLog(
+    id: string,
+    userId: string,
+    dto: MoveCardDto,
+    card: { id: string; boardId: string; position: number },
+  ) {
     const sameBoard = card.boardId === dto.targetBoardId;
     const moveSelect = { id: true, boardId: true, position: true } as const;
 
@@ -198,11 +257,20 @@ export class CardsService {
           orderBy: { position: 'asc' },
         });
         const fromIdx = cards.findIndex((c) => c.id === id);
-        if (fromIdx < 0) return { id: card.id, boardId: card.boardId, position: card.position };
+        if (fromIdx < 0)
+          return {
+            id: card.id,
+            boardId: card.boardId,
+            position: card.position,
+          };
         const toIdx = Math.min(Math.max(0, dto.newPosition), cards.length - 1);
         if (fromIdx === toIdx) {
           // Optimization: if no move, just return
-          return { id: card.id, boardId: card.boardId, position: card.position };
+          return {
+            id: card.id,
+            boardId: card.boardId,
+            position: card.position,
+          };
         }
 
         const withoutCard = cards.filter((c) => c.id !== id);
@@ -255,16 +323,59 @@ export class CardsService {
       });
     });
 
-    await this.activityLogsService.logAction(id, userId, 'MOVED', `Card movido para nova posição/quadro`);
+    await this.activityLogsService.logAction(
+      id,
+      userId,
+      'MOVED',
+      `Card movido para nova posição/quadro`,
+    );
+
+    // Emit event
+    // We need environmentId. card object passed in has boardId, but not envId.
+    // Fetch envId from board.
+    const board = await this.prisma.board.findUnique({
+      where: { id: dto.targetBoardId },
+      select: { environmentId: true },
+    });
+
+    if (board) {
+      this.eventsGateway.emitCardMoved(board.environmentId, {
+        cardId: id,
+        fromBoardId: card.boardId,
+        toBoardId: dto.targetBoardId,
+        newPosition: dto.newPosition,
+        userId, // who moved it
+      });
+    }
+
     return updated;
   }
 
   async remove(id: string, userId: string): Promise<void> {
     await this.findOneOrThrow(id, userId);
     await this.prisma.card.delete({ where: { id } });
-    // Log? Card is deleted, so logs referring to it might be cascade deleted or fail. 
+    // Log? Card is deleted, so logs referring to it might be cascade deleted or fail.
     // Schema says onDelete: Cascade for logs. So we can't log "DELETED" on the card itself easily unless we keep the log null cardId.
     // For now, no log on delete (or log before delete).
+
+    // Fetch envId for event before deletion
+    const card = await this.prisma.card.findUnique({
+      where: { id },
+      select: {
+        boardId: true,
+        board: { select: { environmentId: true } },
+      },
+    });
+
+    await this.prisma.card.delete({ where: { id } });
+
+    if (card) {
+      this.eventsGateway.emitCardDeleted(card.board.environmentId, {
+        cardId: id,
+        boardId: card.boardId,
+        userId,
+      });
+    }
   }
 
   private async findOneOrThrow(
@@ -277,12 +388,32 @@ export class CardsService {
         id: true,
         boardId: true,
         position: true,
-        board: { select: { environment: { select: { userId: true } } } },
+        board: {
+          select: { environment: { select: { userId: true, id: true } } },
+        },
       },
     });
-    if (!card || card.board.environment.userId !== userId) {
+
+    if (!card) {
       throw new NotFoundException('Card não encontrado');
     }
+
+    const environment = card.board.environment;
+    const isOwner = environment.userId === userId;
+
+    if (!isOwner) {
+      const isMember = await this.prisma.environmentMember.findFirst({
+        where: {
+          environmentId: environment.id,
+          userId: userId,
+        },
+      });
+
+      if (!isMember) {
+        throw new NotFoundException('Card não encontrado');
+      }
+    }
+
     return { id: card.id, boardId: card.boardId, position: card.position };
   }
 

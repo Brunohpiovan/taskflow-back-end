@@ -1,5 +1,21 @@
-import { Controller, Get, Post, Put, Body, HttpCode, HttpStatus, Req, Res, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthGuard } from '@nestjs/passport';
 import * as express from 'express';
@@ -21,7 +37,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   @Public()
   @Post('login')
@@ -30,7 +46,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Login com email e senha' })
   @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
-  @ApiResponse({ status: 429, description: 'Muitas tentativas de login. Tente novamente em alguns minutos.' })
+  @ApiResponse({
+    status: 429,
+    description:
+      'Muitas tentativas de login. Tente novamente em alguns minutos.',
+  })
   async login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(dto);
   }
@@ -48,15 +68,26 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   @ApiOperation({ summary: 'Callback do login com Google' })
-  @ApiResponse({ status: 302, description: 'Redireciona para o frontend com token' })
+  @ApiResponse({
+    status: 302,
+    description: 'Redireciona para o frontend com token',
+  })
   googleCallback(@Req() req: express.Request, @Res() res: express.Response) {
     const auth = (req as express.Request & { user?: AuthResponseDto }).user;
     if (!auth?.token) {
-      const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+      const frontendUrl = this.configService.get<string>(
+        'frontendUrl',
+        'http://localhost:3000',
+      );
       return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
     }
-    const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
-    return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`);
+    const frontendUrl = this.configService.get<string>(
+      'frontendUrl',
+      'http://localhost:3000',
+    );
+    return res.redirect(
+      `${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`,
+    );
   }
 
   @Public()
@@ -72,15 +103,26 @@ export class AuthController {
   @Get('github/callback')
   @UseGuards(AuthGuard('github'))
   @ApiOperation({ summary: 'Callback do login com GitHub' })
-  @ApiResponse({ status: 302, description: 'Redireciona para o frontend com token' })
+  @ApiResponse({
+    status: 302,
+    description: 'Redireciona para o frontend com token',
+  })
   githubCallback(@Req() req: express.Request, @Res() res: express.Response) {
     const auth = (req as express.Request & { user?: AuthResponseDto }).user;
     if (!auth?.token) {
-      const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
+      const frontendUrl = this.configService.get<string>(
+        'frontendUrl',
+        'http://localhost:3000',
+      );
       return res.redirect(`${frontendUrl}/login?error=oauth_failed`);
     }
-    const frontendUrl = this.configService.get<string>('frontendUrl', 'http://localhost:3000');
-    return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`);
+    const frontendUrl = this.configService.get<string>(
+      'frontendUrl',
+      'http://localhost:3000',
+    );
+    return res.redirect(
+      `${frontendUrl}/auth/callback?token=${encodeURIComponent(auth.token)}`,
+    );
   }
 
   @Public()
@@ -95,7 +137,9 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Refresh token (valida Bearer e retorna user + token)' })
+  @ApiOperation({
+    summary: 'Refresh token (valida Bearer e retorna user + token)',
+  })
   @ApiResponse({ status: 200, description: 'Token válido' })
   @ApiResponse({ status: 401, description: 'Token inválido ou expirado' })
   async refresh(@CurrentUser() payload: JwtPayload): Promise<AuthResponseDto> {
@@ -112,9 +156,14 @@ export class AuthController {
 
   @Put('me')
   @ApiBearerAuth('JWT')
-  @ApiOperation({ summary: 'Atualizar dados do usuário (nome, email e/ou senha)' })
+  @ApiOperation({
+    summary: 'Atualizar dados do usuário (nome, email e/ou senha)',
+  })
   @ApiResponse({ status: 200, description: 'Dados atualizados' })
-  @ApiResponse({ status: 400, description: 'Senhas não coincidem ou confirmação ausente' })
+  @ApiResponse({
+    status: 400,
+    description: 'Senhas não coincidem ou confirmação ausente',
+  })
   @ApiResponse({ status: 409, description: 'Email já em uso' })
   async updateProfile(
     @CurrentUser() payload: JwtPayload,
@@ -127,7 +176,10 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Solicitar redefinição de senha' })
-  @ApiResponse({ status: 200, description: 'Email enviado (ou ignorado silenciosamente)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email enviado (ou ignorado silenciosamente)',
+  })
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
     return this.authService.forgotPassword(dto.email);
   }

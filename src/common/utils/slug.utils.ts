@@ -8,15 +8,15 @@
  * @returns A lowercase, hyphenated slug
  */
 export function generateSlug(text: string): string {
-    return text
-        .toLowerCase()
-        .normalize('NFD') // Normalize to decomposed form
-        .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
-        .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric except spaces and hyphens
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-        .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
-        .substring(0, 50); // Limit length
+  return text
+    .toLowerCase()
+    .normalize('NFD') // Normalize to decomposed form
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics (accents)
+    .replace(/[^a-z0-9\s-]/g, '') // Remove non-alphanumeric except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
+    .substring(0, 50); // Limit length
 }
 
 /**
@@ -26,18 +26,18 @@ export function generateSlug(text: string): string {
  * @returns A unique slug
  */
 export function ensureUniqueSlug(
-    baseSlug: string,
-    existingSlugs: string[],
+  baseSlug: string,
+  existingSlugs: string[],
 ): string {
-    let slug = baseSlug;
-    let counter = 2;
+  let slug = baseSlug;
+  let counter = 2;
 
-    while (existingSlugs.includes(slug)) {
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-    }
+  while (existingSlugs.includes(slug)) {
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
 
-    return slug;
+  return slug;
 }
 
 /**
@@ -47,9 +47,9 @@ export function ensureUniqueSlug(
  * @returns A unique slug
  */
 export function generateUniqueSlug(
-    text: string,
-    existingSlugs: string[],
+  text: string,
+  existingSlugs: string[],
 ): string {
-    const baseSlug = generateSlug(text);
-    return ensureUniqueSlug(baseSlug, existingSlugs);
+  const baseSlug = generateSlug(text);
+  return ensureUniqueSlug(baseSlug, existingSlugs);
 }

@@ -25,6 +25,7 @@ model User {
   environments Environment[]
   comments     Comment[]
   activityLogs ActivityLog[]
+  memberships  EnvironmentMember[]
 
   @@map("users")
 }
@@ -40,6 +41,8 @@ model Environment {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   boards      Board[]
   labels      Label[]
+  members     EnvironmentMember[]
+  invites     Invite[]
 
   @@map("environments")
 }
@@ -115,4 +118,44 @@ model ActivityLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("activity_logs")
+}
+
+model EnvironmentMember {
+  id            String      @id @default(uuid())
+  environmentId String      @map("environment_id")
+  userId        String      @map("user_id")
+  role          MemberRole  @default(MEMBER)
+  joinedAt      DateTime    @default(now()) @map("joined_at")
+
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([environmentId, userId])
+  @@map("environment_members")
+}
+
+model Invite {
+  id            String      @id @default(uuid())
+  email         String
+  environmentId String      @map("environment_id")
+  token         String      @unique
+  expiresAt     DateTime    @map("expires_at")
+  status        InviteStatus @default(PENDING)
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@map("invites")
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }

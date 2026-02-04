@@ -73,7 +73,9 @@ export class BoardsService {
     await this.assertEnvironmentBelongsToUser(dto.environmentId, userId);
     const position =
       dto.position ??
-      (await this.prisma.board.count({ where: { environmentId: dto.environmentId } }));
+      (await this.prisma.board.count({
+        where: { environmentId: dto.environmentId },
+      }));
 
     // Generate unique slug for this environment
     const baseSlug = generateSlug(dto.name);
@@ -106,7 +108,9 @@ export class BoardsService {
 
     const updateData: any = {
       ...(dto.name !== undefined && { name: dto.name.trim() }),
-      ...(dto.description !== undefined && { description: dto.description?.trim() }),
+      ...(dto.description !== undefined && {
+        description: dto.description?.trim(),
+      }),
       ...(dto.position !== undefined && { position: dto.position }),
     };
 
@@ -137,7 +141,13 @@ export class BoardsService {
   async findOneForUser(
     boardId: string,
     userId: string,
-  ): Promise<{ id: string; environmentId: string; name: string; description: string | null; position: number }> {
+  ): Promise<{
+    id: string;
+    environmentId: string;
+    name: string;
+    description: string | null;
+    position: number;
+  }> {
     const board = await this.findOneOrThrow(boardId, userId);
     return board;
   }
@@ -147,11 +157,14 @@ export class BoardsService {
     userId: string,
   ): Promise<void> {
     const env = await this.prisma.environment.findFirst({
-      where: { id: environmentId, userId },
+      where: {
+        id: environmentId,
+        OR: [{ userId }, { members: { some: { userId } } }],
+      },
       select: { id: true },
     });
     if (!env) {
-      throw new NotFoundException('Ambiente não encontrado');
+      throw new NotFoundException('Ambiente não encontrado ou acesso negado');
     }
   }
 
@@ -159,7 +172,13 @@ export class BoardsService {
     id: string,
     userId: string,
   ): Promise<
-    { id: string; environmentId: string; name: string; description: string | null; position: number } & {
+    {
+      id: string;
+      environmentId: string;
+      name: string;
+      description: string | null;
+      position: number;
+    } & {
       _count?: { cards: number };
     }
   > {
@@ -167,20 +186,39 @@ export class BoardsService {
       where: { id },
       select: {
         ...boardSelect,
-        environment: { select: { userId: true } },
+        environment: {
+          select: {
+            userId: true,
+            id: true,
+            members: { where: { userId }, select: { userId: true } },
+          },
+        },
         _count: { select: { cards: true } },
       },
     });
-    if (!board || board.environment.userId !== userId) {
-      throw new NotFoundException('Board não encontrado');
+
+    if (!board) throw new NotFoundException('Board não encontrado');
+
+    const isOwner = board.environment.userId === userId;
+    const isMember = board.environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
+      throw new NotFoundException('Board não encontrado ou acesso negado');
     }
+
     const { environment: _, ...rest } = board;
     return rest;
   }
 
-  private toResponse(
-    b: { id: string; slug: string; name: string; description?: string | null; position: number; environmentId: string; _count?: { cards: number } },
-  ): BoardResponse {
+  private toResponse(b: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string | null;
+    position: number;
+    environmentId: string;
+    _count?: { cards: number };
+  }): BoardResponse {
     return {
       id: b.id,
       slug: b.slug,

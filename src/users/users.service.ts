@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface CreateUserData {
@@ -33,7 +37,7 @@ export interface UserWithResetToken extends UserWithPassword {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async findByEmail(email: string): Promise<UserWithPassword | null> {
     return this.prisma.user.findUnique({
@@ -48,7 +52,10 @@ export class UsersService {
     });
   }
 
-  async findByProvider(provider: string, providerId: string): Promise<UserForAuth | null> {
+  async findByProvider(
+    provider: string,
+    providerId: string,
+  ): Promise<UserForAuth | null> {
     return this.prisma.user.findFirst({
       where: { provider, providerId },
       select: {
@@ -74,7 +81,14 @@ export class UsersService {
     }
     const existingByEmail = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true, email: true, name: true, avatar: true, provider: true, providerId: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        provider: true,
+        providerId: true,
+      },
     });
     if (existingByEmail) {
       await this.prisma.user.update({
@@ -155,7 +169,8 @@ export class UsersService {
     if (!current) {
       throw new NotFoundException('Usuário não encontrado');
     }
-    const updateData: { name?: string; email?: string; passwordHash?: string } = {};
+    const updateData: { name?: string; email?: string; passwordHash?: string } =
+      {};
     if (data.name !== undefined) {
       updateData.name = data.name.trim();
     }
@@ -188,7 +203,11 @@ export class UsersService {
     return user;
   }
 
-  async updateResetToken(userId: string, token: string, expires: Date): Promise<void> {
+  async updateResetToken(
+    userId: string,
+    token: string,
+    expires: Date,
+  ): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -212,7 +231,10 @@ export class UsersService {
     }) as Promise<UserWithResetToken | null>;
   }
 
-  async updatePasswordAndClearToken(userId: string, passwordHash: string): Promise<void> {
+  async updatePasswordAndClearToken(
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -223,4 +245,3 @@ export class UsersService {
     });
   }
 }
-

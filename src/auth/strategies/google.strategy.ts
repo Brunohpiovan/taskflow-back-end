@@ -19,7 +19,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ) {
     const clientId = configService.get<string>('google.clientId');
     const clientSecret = configService.get<string>('google.clientSecret');
-    const backendUrl = configService.get<string>('backendUrl', 'http://localhost:3001');
+    const backendUrl = configService.get<string>(
+      'backendUrl',
+      'http://localhost:3001',
+    );
     const apiPrefix = configService.get<string>('apiPrefix', 'api');
     super({
       clientID: clientId ?? '',

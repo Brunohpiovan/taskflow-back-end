@@ -35,7 +35,12 @@ export class EnvironmentsService {
 
   async findAll(userId: string): Promise<EnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
-      where: { userId },
+      where: {
+        OR: [
+          { userId },
+          { members: { some: { userId } } },
+        ],
+      },
       select: {
         ...environmentSelect,
         _count: { select: { boards: true } },
@@ -48,9 +53,16 @@ export class EnvironmentsService {
     return environments.map((e) => this.toResponseWithCounts(e));
   }
 
-  async findAllDashboard(userId: string): Promise<DashboardEnvironmentResponse[]> {
+  async findAllDashboard(
+    userId: string,
+  ): Promise<DashboardEnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
-      where: { userId },
+      where: {
+        OR: [
+          { userId },
+          { members: { some: { userId } } },
+        ],
+      },
       select: {
         id: true,
         slug: true,
@@ -139,9 +151,11 @@ export class EnvironmentsService {
   ): Promise<EnvironmentResponse> {
     await this.findOneOrThrow(id, userId);
 
-    const updateData: any = {
+    const updateData: { name?: string; description?: string; slug?: string } = {
       ...(dto.name !== undefined && { name: dto.name.trim() }),
-      ...(dto.description !== undefined && { description: dto.description?.trim() }),
+      ...(dto.description !== undefined && {
+        description: dto.description?.trim(),
+      }),
     };
 
     // Regenerate slug if name is changing
@@ -177,7 +191,12 @@ export class EnvironmentsService {
   private async findOneOrThrow(
     id: string,
     userId: string,
-  ): Promise<{ id: string; slug: string; name: string; description: string | null } & { _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> }> {
+  ): Promise<
+    { id: string; slug: string; name: string; description: string | null } & {
+      _count?: { boards: number };
+      boards?: Array<{ _count: { cards: number } }>;
+    }
+  > {
     const environment = await this.prisma.environment.findFirst({
       where: { id, userId },
       select: {
@@ -192,7 +211,12 @@ export class EnvironmentsService {
     return environment;
   }
 
-  private toResponse(e: { id: string; slug: string; name: string; description?: string | null }): EnvironmentResponse {
+  private toResponse(e: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string | null;
+  }): EnvironmentResponse {
     return {
       id: e.id,
       slug: e.slug,
@@ -201,14 +225,16 @@ export class EnvironmentsService {
     };
   }
 
-  private toResponseWithCounts(
-    e: { id: string; slug: string; name: string; description?: string | null; _count?: { boards: number }; boards?: Array<{ _count: { cards: number } }> },
-  ): EnvironmentResponse {
+  private toResponseWithCounts(e: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string | null;
+    _count?: { boards: number };
+    boards?: Array<{ _count: { cards: number } }>;
+  }): EnvironmentResponse {
     const boardsCount = e._count?.boards;
-    const cardsCount = e.boards?.reduce(
-      (sum, b) => sum + b._count.cards,
-      0,
-    );
+    const cardsCount = e.boards?.reduce((sum, b) => sum + b._count.cards, 0);
     return {
       ...this.toResponse(e),
       ...(boardsCount !== undefined && { boardsCount }),
