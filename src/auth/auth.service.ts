@@ -2,11 +2,14 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../services/mail.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -21,7 +24,8 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+    private mailService: MailService,
+  ) { }
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.usersService.findByEmail(dto.email);
@@ -109,6 +113,51 @@ export class AuthService {
       email: user.email,
       avatar: user.avatar ?? undefined,
     };
+  }
+
+  async forgotPassword(email: string): Promise<void> {
+    console.log(`[ForgotPassword] Initiating for email: ${email}`);
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      console.log(`[ForgotPassword] User not found for email: ${email}`);
+      // Security: Don't reveal if user exists or not, just return
+      return;
+    }
+
+    // if (!user.passwordHash) {
+    //   console.log(`[ForgotPassword] User ${email} is OAuth-only (no password hash).`);
+    //   // OAuth user, cannot reset password. Ideally we could send an email saying so.
+    //   return;
+    // }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date();
+    expires.setHours(expires.getHours() + 1); // 1 hour
+
+    console.log(`[ForgotPassword] Generated token for ${email}, updating DB...`);
+    try {
+      await this.usersService.updateResetToken(user.id, token, expires);
+      console.log(`[ForgotPassword] DB updated. Sending email...`);
+      await this.mailService.sendPasswordResetEmail(user.email, token);
+      console.log(`[ForgotPassword] Email sent.`);
+    } catch (error) {
+      console.error(`[ForgotPassword] Error:`, error);
+      throw error;
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    // We need a method in UsersService to find by token
+    const user = await this.usersService.findByResetToken(token);
+
+    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
+      throw new BadRequestException('Token inválido ou expirado');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, this.saltRounds);
+
+    await this.usersService.updatePasswordAndClearToken(user.id, passwordHash);
   }
 
   private async buildAuthResponse(user: {

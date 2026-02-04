@@ -27,9 +27,13 @@ export interface UserWithPassword extends UserForAuth {
   passwordHash: string | null;
 }
 
+export interface UserWithResetToken extends UserWithPassword {
+  resetPasswordExpires: Date | null;
+}
+
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async findByEmail(email: string): Promise<UserWithPassword | null> {
     return this.prisma.user.findUnique({
@@ -183,4 +187,40 @@ export class UsersService {
     });
     return user;
   }
+
+  async updateResetToken(userId: string, token: string, expires: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        resetPasswordToken: token,
+        resetPasswordExpires: expires,
+      },
+    });
+  }
+
+  async findByResetToken(token: string): Promise<UserWithResetToken | null> {
+    return this.prisma.user.findUnique({
+      where: { resetPasswordToken: token },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        passwordHash: true,
+        resetPasswordExpires: true,
+      },
+    }) as Promise<UserWithResetToken | null>;
+  }
+
+  async updatePasswordAndClearToken(userId: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+  }
 }
+
