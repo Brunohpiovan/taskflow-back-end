@@ -13,6 +13,7 @@ import { CommentsModule } from './comments/comments.module';
 import { LabelsModule } from './labels/labels.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { EventsModule } from './events/events.module';
+import { CacheModule } from './common/cache/cache.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { EventsModule } from './events/events.module';
     LabelsModule,
     ActivityLogsModule,
     EventsModule,
+    CacheModule,
   ],
   controllers: [],
   providers: [
@@ -37,4 +39,4 @@ import { EventsModule } from './events/events.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }

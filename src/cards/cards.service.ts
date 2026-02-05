@@ -153,12 +153,13 @@ export class CardsService {
       select: cardDetailSelect,
     });
 
-    await this.activityLogsService.logAction(
+    // Fire-and-forget logging
+    this.activityLogsService.logAction(
       card.id,
       userId,
       'CREATED',
       `Card criado: ${card.title}`,
-    );
+    ).catch(err => console.error('Failed to log action', err));
 
     // Fetch envId for event
     const board = await this.prisma.board.findUnique({
@@ -200,12 +201,13 @@ export class CardsService {
       select: cardDetailSelect,
     });
 
-    await this.activityLogsService.logAction(
+    // Fire-and-forget logging
+    this.activityLogsService.logAction(
       card.id,
       userId,
       'UPDATED',
       'Card atualizado',
-    );
+    ).catch(err => console.error('Failed to log action', err));
 
     const board = await this.prisma.board.findUnique({
       where: { id: card.boardId },
@@ -274,7 +276,8 @@ export class CardsService {
         }
 
         const withoutCard = cards.filter((c) => c.id !== id);
-        withoutCard.splice(toIdx, 0, { id: card.id, position: card.position });
+        // Insert at new position - position will be set by the loop below
+        withoutCard.splice(toIdx, 0, { id: card.id, position: toIdx });
 
         for (let i = 0; i < withoutCard.length; i++) {
           if (withoutCard[i].position !== i) {
@@ -323,12 +326,13 @@ export class CardsService {
       });
     });
 
-    await this.activityLogsService.logAction(
+    // Fire-and-forget logging
+    this.activityLogsService.logAction(
       id,
       userId,
       'MOVED',
       `Card movido para nova posição/quadro`,
-    );
+    ).catch(err => console.error('Failed to log action', err));
 
     // Emit event
     // We need environmentId. card object passed in has boardId, but not envId.
@@ -353,10 +357,6 @@ export class CardsService {
 
   async remove(id: string, userId: string): Promise<void> {
     await this.findOneOrThrow(id, userId);
-    await this.prisma.card.delete({ where: { id } });
-    // Log? Card is deleted, so logs referring to it might be cascade deleted or fail.
-    // Schema says onDelete: Cascade for logs. So we can't log "DELETED" on the card itself easily unless we keep the log null cardId.
-    // For now, no log on delete (or log before delete).
 
     // Fetch envId for event before deletion
     const card = await this.prisma.card.findUnique({
