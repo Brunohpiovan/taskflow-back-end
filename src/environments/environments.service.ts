@@ -131,17 +131,29 @@ export class EnvironmentsService {
     // Ensure slug is unique
     const slug = ensureUniqueSlug(baseSlug, existingSlugs);
 
-    const environment = await this.prisma.environment.create({
-      data: {
-        userId,
-        name: dto.name.trim(),
-        slug,
-        description: dto.description?.trim(),
-      },
+    // Use transaction to ensure both environment and member are created
+    return this.prisma.$transaction(async (tx) => {
+      const environment = await tx.environment.create({
+        data: {
+          userId,
+          name: dto.name.trim(),
+          slug,
+          description: dto.description?.trim(),
+        },
+        select: environmentSelect,
+      });
 
-      select: environmentSelect,
+      // Add creator as OWNER
+      await tx.environmentMember.create({
+        data: {
+          environmentId: environment.id,
+          userId,
+          role: 'OWNER',
+        },
+      });
+
+      return this.toResponse(environment);
     });
-    return this.toResponse(environment);
   }
 
   async update(
