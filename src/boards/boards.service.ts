@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardDto } from './dto/update-board.dto';
 import { generateSlug, ensureUniqueSlug } from '../common/utils/slug.utils';
+import { EventsGateway } from '../events/events.gateway';
 
 const boardSelect = {
   id: true,
@@ -25,7 +26,10 @@ export interface BoardResponse {
 
 @Injectable()
 export class BoardsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private eventsGateway: EventsGateway,
+  ) { }
 
   async findByEnvironmentId(
     environmentId: string,
@@ -71,13 +75,13 @@ export class BoardsService {
 
   async create(userId: string, dto: CreateBoardDto): Promise<BoardResponse> {
     await this.assertEnvironmentBelongsToUser(dto.environmentId, userId);
+    // ... (slug logic omitted)
     const position =
       dto.position ??
       (await this.prisma.board.count({
         where: { environmentId: dto.environmentId },
       }));
 
-    // Generate unique slug for this environment
     const baseSlug = generateSlug(dto.name);
     const existingBoards = await this.prisma.board.findMany({
       where: { environmentId: dto.environmentId },
@@ -96,7 +100,10 @@ export class BoardsService {
       },
       select: boardSelect,
     });
-    return this.toResponse(board);
+
+    const response = this.toResponse(board);
+    this.eventsGateway.emitBoardCreated(dto.environmentId, { ...response, userId });
+    return response;
   }
 
   async update(
@@ -114,7 +121,6 @@ export class BoardsService {
       ...(dto.position !== undefined && { position: dto.position }),
     };
 
-    // Regenerate slug if name is changing
     if (dto.name !== undefined) {
       const baseSlug = generateSlug(dto.name);
       const existingBoards = await this.prisma.board.findMany({
@@ -130,12 +136,16 @@ export class BoardsService {
       data: updateData,
       select: boardSelect,
     });
-    return this.toResponse(updated);
+
+    const response = this.toResponse(updated);
+    this.eventsGateway.emitBoardUpdated(board.environmentId, { ...response, userId });
+    return response;
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    await this.findOneOrThrow(id, userId);
+    const board = await this.findOneOrThrow(id, userId);
     await this.prisma.board.delete({ where: { id } });
+    this.eventsGateway.emitBoardDeleted(board.environmentId, { boardId: id, userId });
   }
 
   async findOneForUser(

@@ -84,4 +84,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitCardDeleted(environmentId: string, data: any) {
     this.server.to(`env_${environmentId}`).emit('cardDeleted', data);
   }
+
+  emitBoardCreated(environmentId: string, data: any) {
+    this.server.to(`env_${environmentId}`).emit('boardCreated', data);
+  }
+
+  emitBoardUpdated(environmentId: string, data: any) {
+    this.server.to(`env_${environmentId}`).emit('boardUpdated', data);
+  }
+
+  emitBoardDeleted(environmentId: string, data: any) {
+    this.server.to(`env_${environmentId}`).emit('boardDeleted', data);
+  }
 }
