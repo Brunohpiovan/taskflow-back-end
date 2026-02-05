@@ -67,7 +67,6 @@ export class EnvironmentsService {
         id: true,
         slug: true,
         name: true,
-        description: true,
         _count: { select: { boards: true } },
         boards: {
           select: { _count: { select: { cards: true } } },
@@ -80,7 +79,6 @@ export class EnvironmentsService {
       id: e.id,
       slug: e.slug,
       name: e.name,
-      description: e.description ?? undefined,
       boardsCount: e._count.boards,
       cardsCount: e.boards.reduce((sum, b) => sum + b._count.cards, 0),
     }));

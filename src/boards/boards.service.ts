@@ -14,6 +14,15 @@ const boardSelect = {
   position: true,
 } as const;
 
+const boardListSelect = {
+  id: true,
+  environmentId: true,
+  name: true,
+  slug: true,
+  // description: true, // Optimized: Description is not shown in board columns
+  position: true,
+} as const;
+
 export interface BoardResponse {
   id: string;
   name: string;
@@ -39,7 +48,7 @@ export class BoardsService {
     const boards = await this.prisma.board.findMany({
       where: { environmentId },
       select: {
-        ...boardSelect,
+        ...boardListSelect,
         _count: { select: { cards: true } },
       },
       orderBy: { position: 'asc' },
