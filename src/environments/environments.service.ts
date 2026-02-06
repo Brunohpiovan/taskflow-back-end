@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
 import { UpdateEnvironmentDto } from './dto/update-environment.dto';
@@ -161,6 +161,9 @@ export class EnvironmentsService {
   ): Promise<EnvironmentResponse> {
     await this.findOneOrThrow(id, userId);
 
+    // Verify user is OWNER
+    await this.assertIsOwner(id, userId);
+
     const updateData: { name?: string; description?: string; slug?: string } = {
       ...(dto.name !== undefined && { name: dto.name.trim() }),
       ...(dto.description !== undefined && {
@@ -195,6 +198,10 @@ export class EnvironmentsService {
 
   async remove(id: string, userId: string): Promise<void> {
     await this.findOneOrThrow(id, userId);
+
+    // Verify user is OWNER
+    await this.assertIsOwner(id, userId);
+
     await this.prisma.environment.delete({ where: { id } });
   }
 
@@ -208,7 +215,13 @@ export class EnvironmentsService {
     }
   > {
     const environment = await this.prisma.environment.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId }, // Legacy owner
+          { members: { some: { userId } } }, // Member check
+        ],
+      },
       select: {
         ...environmentSelect,
         _count: { select: { boards: true } },
@@ -219,6 +232,28 @@ export class EnvironmentsService {
       throw new NotFoundException('Ambiente não encontrado');
     }
     return environment;
+  }
+
+  private async assertIsOwner(
+    environmentId: string,
+    userId: string,
+  ): Promise<void> {
+    const member = await this.prisma.environmentMember.findUnique({
+      where: { environmentId_userId: { environmentId, userId } },
+    });
+
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+    });
+
+    const isLegacyOwner = environment?.userId === userId;
+    const isOwner = isLegacyOwner || (member && member.role === 'OWNER');
+
+    if (!isOwner) {
+      throw new ForbiddenException(
+        'Apenas o dono do ambiente pode realizar esta ação',
+      );
+    }
   }
 
   private toResponse(e: {
