@@ -14,6 +14,7 @@ import { LabelsModule } from './labels/labels.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { EventsModule } from './events/events.module';
 import { CacheModule } from './common/cache/cache.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CacheModule } from './common/cache/cache.module';
     ActivityLogsModule,
     EventsModule,
     CacheModule,
+    MetricsModule,
   ],
   controllers: [],
   providers: [
