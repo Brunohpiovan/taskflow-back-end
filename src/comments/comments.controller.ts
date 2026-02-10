@@ -72,4 +72,9 @@ export class CommentsController {
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.commentsService.remove(id, user.sub);
   }
+  @Get('attachment/:id/download')
+  @ApiOperation({ summary: 'Get download URL for an attachment' })
+  getDownloadUrl(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.commentsService.getAttachmentDownloadUrl(id, user.sub);
+  }
 }
