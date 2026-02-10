@@ -74,6 +74,7 @@ export class MailService {
         to: [to],
         subject: mailOptions.subject,
         html: mailOptions.html,
+        text: `Olá,\n\nRecebemos uma solicitação para redefinir a senha da sua conta no TaskFlow. Se foi você, copie e cole o link abaixo no seu navegador:\n\n${resetLink}\n\nEste link é válido por 1 hora.\n\nSe você não solicitou essa alteração, ignore este email.`,
       });
 
       if (error) {
@@ -161,6 +162,7 @@ export class MailService {
         to: [to],
         subject: mailOptions.subject,
         html: mailOptions.html,
+        text: `Olá,\n\n${inviterName} convidou você para colaborar no quadro: ${environmentName}.\n\nPara aceitar, copie e cole o link abaixo no seu navegador:\n\n${joinLink}\n\nSe você não esperava este convite, ignore este email.`,
       });
 
       if (error) {
