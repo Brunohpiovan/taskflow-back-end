@@ -70,7 +70,7 @@ export class MailService {
     try {
       console.log(`[MailService] Sending password reset email to: ${to}`);
       const { data, error } = await this.resend.emails.send({
-        from: 'TaskFlow <onboarding@resend.dev>', // Use default domain for testing/start
+        from: 'TaskFlow <nao-responda@redescomputadores.site>',
         to: [to],
         subject: mailOptions.subject,
         html: mailOptions.html,
@@ -157,7 +157,7 @@ export class MailService {
     try {
       console.log(`[MailService] Sending invite email to: ${to}`);
       const { data, error } = await this.resend.emails.send({
-        from: 'TaskFlow <onboarding@resend.dev>',
+        from: 'TaskFlow <nao-responda@redescomputadores.site>',
         to: [to],
         subject: mailOptions.subject,
         html: mailOptions.html,
