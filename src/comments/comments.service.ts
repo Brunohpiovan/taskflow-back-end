@@ -168,4 +168,50 @@ export class CommentsService {
 
     return this.prisma.comment.delete({ where: { id } });
   }
+
+  async getAttachmentDownloadUrl(attachmentId: string, userId: string) {
+    const attachment = await this.prisma.attachment.findUnique({
+      where: { id: attachmentId },
+      include: {
+        comment: {
+          include: {
+            card: {
+              include: {
+                board: {
+                  include: {
+                    environment: {
+                      select: {
+                        userId: true,
+                        members: { where: { userId }, select: { userId: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attachment) {
+      throw new NotFoundException('Anexo não encontrado');
+    }
+
+    // Verify access
+    const environment = attachment.comment.card.board.environment;
+    const isOwner = environment.userId === userId;
+    const isMember = environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
+      throw new ForbiddenException('Você não tem permissão para acessar este anexo');
+    }
+
+    if (!attachment.key) {
+      throw new NotFoundException('Arquivo não encontrado no armazenamento');
+    }
+
+    const url = await this.uploadService.getSignedDownloadUrl(attachment.key, attachment.filename);
+    return { url };
+  }
 }

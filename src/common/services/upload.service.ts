@@ -1,6 +1,7 @@
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { ConfigService } from '@nestjs/config';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -69,6 +70,23 @@ export class UploadService {
             console.error('Error deleting file from S3:', error);
             // We might not want to throw here if we just want to suppress deletion errors
             throw new InternalServerErrorException('Falha ao deletar arquivo');
+        }
+    }
+
+    async getSignedDownloadUrl(key: string, filename: string): Promise<string> {
+        try {
+            const command = new GetObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                ResponseContentDisposition: `attachment; filename="${filename}"`,
+            });
+
+            // Expiration time in seconds (e.g., 15 minutes)
+            const url = await getSignedUrl(this.s3Client, command, { expiresIn: 900 });
+            return url;
+        } catch (error) {
+            console.error('Error generating signed URL:', error);
+            throw new InternalServerErrorException('Falha ao gerar link de download');
         }
     }
 }
