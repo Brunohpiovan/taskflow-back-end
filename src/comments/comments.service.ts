@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
+import { UploadService } from '../common/services/upload.service';
 
 @Injectable()
 export class CommentsService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private uploadService: UploadService,
+  ) { }
 
-  async create(userId: string, createCommentDto: CreateCommentDto) {
+  async create(userId: string, createCommentDto: CreateCommentDto, file?: Express.Multer.File) {
     const { cardId, content } = createCommentDto;
 
     // Verify card exists AND user is a member of the environment
@@ -40,11 +44,23 @@ export class CommentsService {
       );
     }
 
+    let attachmentData = null;
+    if (file) {
+      const { url, key } = await this.uploadService.uploadFile(file, 'comments');
+      attachmentData = {
+        url,
+        key,
+        filename: file.originalname,
+        type: file.mimetype,
+      };
+    }
+
     const comment = await this.prisma.comment.create({
       data: {
         content,
         cardId,
         userId,
+        attachments: attachmentData ? { create: attachmentData } : undefined,
       },
       select: {
         id: true,
@@ -57,6 +73,7 @@ export class CommentsService {
             avatar: true,
           },
         },
+        attachments: true,
       },
     });
 
@@ -80,6 +97,7 @@ export class CommentsService {
             avatar: true,
           },
         },
+        attachments: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -128,6 +146,24 @@ export class CommentsService {
       throw new ForbiddenException(
         'Apenas o autor ou o dono do ambiente pode deletar este comentário',
       );
+    }
+
+    // Delete attachments from S3 if any
+    const commentWithAttachments = await this.prisma.comment.findUnique({
+      where: { id },
+      include: { attachments: true },
+    });
+
+    if (commentWithAttachments?.attachments) {
+      for (const attachment of commentWithAttachments.attachments) {
+        if (attachment.key) {
+          // We do not await here to not block the response if S3 is slow, 
+          // but for reliability it might be better to await. 
+          // Given the task is "optimized", firing and forgetting or awaiting are both valid choices depending on consistency requirements.
+          // I'll await to ensure cleanups.
+          await this.uploadService.deleteFile(attachment.key).catch(e => console.error(`Failed to delete file ${attachment.key}`, e));
+        }
+      }
     }
 
     return this.prisma.comment.delete({ where: { id } });

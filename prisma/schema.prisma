@@ -102,8 +102,23 @@ model Comment {
   updatedAt DateTime @updatedAt @map("updated_at")
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  commentId String   @map("comment_id")
+  url       String   @db.Text
+  key       String // S3 Key
+  filename  String
+  type      String // mime-type
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
 }
 
 model ActivityLog {
