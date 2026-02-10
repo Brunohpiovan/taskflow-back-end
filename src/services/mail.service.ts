@@ -21,9 +21,6 @@ export class MailService {
       host: this.configService.get<string>('SMTP_HOST'),
       port: port,
       secure: secure,
-      tls: {
-        rejectUnauthorized: false,
-      },
       auth: {
         user: this.configService.get<string>('SMTP_USER'),
         pass: this.configService.get<string>('SMTP_PASS'),
@@ -31,8 +28,9 @@ export class MailService {
       tls: {
         rejectUnauthorized: false,
       },
-      family: 4, // Force IPv4 to avoid ENETUNREACH on Render
-    });
+      // Force IPv4 to avoid ENETUNREACH in environments like Render
+      family: 4,
+    } as nodemailer.TransportOptions);
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
