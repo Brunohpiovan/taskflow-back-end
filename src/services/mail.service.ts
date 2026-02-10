@@ -1,36 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
+import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter;
+  private resend: Resend;
 
   constructor(private configService: ConfigService) {
-    const secure = this.configService.get<string>('SMTP_SECURE') === 'true';
-    const port = parseInt(
-      this.configService.get<string>('SMTP_PORT') ?? '587',
-      10,
-    );
-
-    console.log(
-      `[MailService] Configuring transport: Host=${this.configService.get('SMTP_HOST')} Port=${port} Secure=${secure}`,
-    );
-
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST'),
-      port: port,
-      secure: secure,
-      auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      // Force IPv4 to avoid ENETUNREACH in environments like Render
-      family: 4,
-    } as nodemailer.TransportOptions);
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
+    if (!apiKey) {
+      console.warn('[MailService] RESEND_API_KEY is not defined');
+    }
+    this.resend = new Resend(apiKey);
   }
 
   async sendPasswordResetEmail(to: string, token: string) {
@@ -88,10 +69,21 @@ export class MailService {
 
     try {
       console.log(`[MailService] Sending password reset email to: ${to}`);
-      await this.transporter.sendMail(mailOptions);
-      console.log(`[MailService] Password reset email sent successfully`);
+      const { data, error } = await this.resend.emails.send({
+        from: 'TaskFlow <onboarding@resend.dev>', // Use default domain for testing/start
+        to: [to],
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      });
+
+      if (error) {
+        console.error(`[MailService] Error sending password reset email:`, error);
+        throw new Error(error.message);
+      }
+
+      console.log(`[MailService] Password reset email sent successfully. ID: ${data?.id}`);
     } catch (error) {
-      console.error(`[MailService] Error sending password reset email:`, error);
+      console.error(`[MailService] Unexpected error sending password reset email:`, error);
       throw error;
     }
   }
@@ -164,10 +156,21 @@ export class MailService {
 
     try {
       console.log(`[MailService] Sending invite email to: ${to}`);
-      await this.transporter.sendMail(mailOptions);
-      console.log(`[MailService] Invite email sent successfully`);
+      const { data, error } = await this.resend.emails.send({
+        from: 'TaskFlow <onboarding@resend.dev>',
+        to: [to],
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      });
+
+      if (error) {
+        console.error(`[MailService] Error sending invite email:`, error);
+        throw new Error(error.message);
+      }
+
+      console.log(`[MailService] Invite email sent successfully. ID: ${data?.id}`);
     } catch (error) {
-      console.error(`[MailService] Error sending invite email:`, error);
+      console.error(`[MailService] Unexpected error sending invite email:`, error);
       throw error;
     }
   }
