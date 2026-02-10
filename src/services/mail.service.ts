@@ -28,6 +28,10 @@ export class MailService {
         user: this.configService.get<string>('SMTP_USER'),
         pass: this.configService.get<string>('SMTP_PASS'),
       },
+      tls: {
+        rejectUnauthorized: false,
+      },
+      family: 4, // Force IPv4 to avoid ENETUNREACH on Render
     });
   }
 
@@ -84,7 +88,14 @@ export class MailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    try {
+      console.log(`[MailService] Sending password reset email to: ${to}`);
+      await this.transporter.sendMail(mailOptions);
+      console.log(`[MailService] Password reset email sent successfully`);
+    } catch (error) {
+      console.error(`[MailService] Error sending password reset email:`, error);
+      throw error;
+    }
   }
 
   async sendInviteEmail(
@@ -153,6 +164,13 @@ export class MailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    try {
+      console.log(`[MailService] Sending invite email to: ${to}`);
+      await this.transporter.sendMail(mailOptions);
+      console.log(`[MailService] Invite email sent successfully`);
+    } catch (error) {
+      console.error(`[MailService] Error sending invite email:`, error);
+      throw error;
+    }
   }
 }
