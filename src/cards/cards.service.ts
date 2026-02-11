@@ -12,7 +12,7 @@ import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
 import type { MoveCardResponseDto } from './dto/move-card-response.dto';
 
-// Optimized select for card listing - only returns necessary fields
+// Optimized select for card listing - only returns necessary fields for UI
 const cardListSelect = {
   id: true,
   title: true,
@@ -23,21 +23,14 @@ const cardListSelect = {
   completed: true,
   labels: {
     select: {
-      id: true,
-      name: true,
-      color: true,
+      color: true, // Only color needed for label indicators
     },
   },
   members: {
     select: {
-      id: true,
-      userId: true,
-      assignedAt: true,
       user: {
         select: {
-          name: true,
-          email: true,
-          avatar: true,
+          avatar: true, // Only avatar needed for member chips
         },
       },
     },
@@ -83,8 +76,8 @@ export interface CardListResponse {
   description?: string;
   position: number;
   boardId: string;
-  labels: { id: string; name: string; color: string }[];
-  members?: { id: string; userId: string; name: string; email: string; avatar?: string; assignedAt: Date }[];
+  labels: { color: string }[]; // Minimal: only color for UI
+  members?: { avatar?: string }[]; // Minimal: only avatar for UI
   dueDate?: string;
   completed: boolean;
 }
@@ -453,8 +446,8 @@ export class CardsService {
     description?: string | null;
     position: number;
     boardId: string;
-    labels?: { id: string; name: string; color: string }[];
-    members?: { id: string; userId: string; assignedAt: Date; user: { name: string; email: string; avatar: string | null } }[];
+    labels?: { color: string }[];
+    members?: { user: { avatar: string | null } }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardListResponse {
@@ -464,14 +457,9 @@ export class CardsService {
       description: c.description ?? undefined,
       position: c.position,
       boardId: c.boardId,
-      labels: c.labels ?? [],
+      labels: c.labels ?? [], // Only color
       members: c.members?.map(m => ({
-        id: m.id,
-        userId: m.userId,
-        name: m.user.name,
-        email: m.user.email,
-        avatar: m.user.avatar ?? undefined,
-        assignedAt: m.assignedAt,
+        avatar: m.user.avatar ?? undefined, // Only avatar
       })),
       dueDate: c.dueDate?.toISOString(),
       completed: c.completed,
