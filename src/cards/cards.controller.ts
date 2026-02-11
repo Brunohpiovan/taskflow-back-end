@@ -22,7 +22,7 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 @ApiBearerAuth('JWT')
 @Controller('cards')
 export class CardsController {
-  constructor(private readonly cardsService: CardsService) {}
+  constructor(private readonly cardsService: CardsService) { }
 
   @Get(':id')
   @ApiOperation({ summary: 'Buscar detalhes completos de um card' })
@@ -33,6 +33,7 @@ export class CardsController {
   @Post()
   @ApiOperation({ summary: 'Criar card' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateCardDto) {
+    console.log('Creating card DTO:', JSON.stringify(dto, null, 2));
     return this.cardsService.create(user.sub, dto);
   }
 
@@ -54,6 +55,34 @@ export class CardsController {
     @Body() dto: MoveCardDto,
   ) {
     return this.cardsService.move(id, user.sub, dto);
+  }
+
+  // Card Members endpoints
+  @Get(':id/members')
+  @ApiOperation({ summary: 'Listar membros do card' })
+  getMembers(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
+    return this.cardsService.getCardMembers(id, user.sub);
+  }
+
+  @Post(':id/members')
+  @ApiOperation({ summary: 'Adicionar membro ao card' })
+  addMember(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: { userId: string },
+  ) {
+    return this.cardsService.addCardMember(id, dto.userId, user.sub);
+  }
+
+  @Delete(':id/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remover membro do card' })
+  removeMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.cardsService.removeCardMember(id, userId, user.sub);
   }
 
   @Delete(':id')

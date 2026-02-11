@@ -12,7 +12,7 @@ import { UpdateCardDto } from './dto/update-card.dto';
 import { MoveCardDto } from './dto/move-card.dto';
 import type { MoveCardResponseDto } from './dto/move-card-response.dto';
 
-// Optimized select for card listing - only returns necessary fields
+// Optimized select for card listing - only returns necessary fields for UI
 const cardListSelect = {
   id: true,
   title: true,
@@ -23,9 +23,16 @@ const cardListSelect = {
   completed: true,
   labels: {
     select: {
-      id: true,
-      name: true,
-      color: true,
+      color: true, // Only color needed for label indicators
+    },
+  },
+  members: {
+    select: {
+      user: {
+        select: {
+          avatar: true, // Only avatar needed for member chips
+        },
+      },
     },
   },
 } as const;
@@ -45,6 +52,20 @@ const cardDetailSelect = {
       environmentId: true,
     },
   },
+  members: {
+    select: {
+      id: true,
+      userId: true,
+      assignedAt: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+    },
+  },
   dueDate: true,
   completed: true,
 } as const;
@@ -55,7 +76,8 @@ export interface CardListResponse {
   description?: string;
   position: number;
   boardId: string;
-  labels: { id: string; name: string; color: string }[];
+  labels: { color: string }[]; // Minimal: only color for UI
+  members?: { avatar?: string }[]; // Minimal: only avatar for UI
   dueDate?: string;
   completed: boolean;
 }
@@ -67,6 +89,7 @@ export interface CardResponse {
   position: number;
   boardId: string;
   labels: { id: string; name: string; color: string }[];
+  members?: { id: string; userId: string; name: string; email: string; avatar?: string; assignedAt: Date }[];
   dueDate?: string;
   completed: boolean;
 }
@@ -132,7 +155,37 @@ export class CardsService {
   }
 
   async create(userId: string, dto: CreateCardDto): Promise<CardResponse> {
-    await this.boardsService.findOneForUser(dto.boardId, userId);
+    console.log('CardsService.create - Members:', dto.members);
+    const board = await this.boardsService.findOneForUser(dto.boardId, userId);
+
+    // Validate members belong to the environment
+    if (dto.members && dto.members.length > 0) {
+      const environment = await this.prisma.environment.findUnique({
+        where: { id: board.environmentId },
+        select: {
+          userId: true,
+          members: {
+            where: { userId: { in: dto.members } },
+            select: { userId: true },
+          },
+        },
+      });
+
+      if (!environment) {
+        throw new NotFoundException('Ambiente não encontrado');
+      }
+
+      const validMemberIds = new Set([
+        environment.userId, // Owner
+        ...environment.members.map(m => m.userId), // Members
+      ]);
+
+      const invalidMembers = dto.members.filter(id => !validMemberIds.has(id));
+      if (invalidMembers.length > 0) {
+        throw new NotFoundException('Um ou mais usuários não pertencem ao ambiente');
+      }
+    }
+
     const position =
       dto.position ??
       (await this.prisma.card.count({ where: { boardId: dto.boardId } }));
@@ -149,6 +202,13 @@ export class CardsService {
             connect: dto.labels.map((id) => ({ id })),
           }
           : undefined,
+        members: dto.members
+          ? {
+            create: dto.members.map((memberId) => ({
+              userId: memberId,
+            })),
+          }
+          : undefined,
       },
       select: cardDetailSelect,
     });
@@ -162,12 +222,12 @@ export class CardsService {
     ).catch(err => console.error('Failed to log action', err));
 
     // Fetch envId for event
-    const board = await this.prisma.board.findUnique({
+    const boardForEvent = await this.prisma.board.findUnique({
       where: { id: dto.boardId },
       select: { environmentId: true },
     });
-    if (board) {
-      this.eventsGateway.emitCardCreated(board.environmentId, { ...card, userId });
+    if (boardForEvent) {
+      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, { ...card, userId });
     }
 
     return this.toResponse(card);
@@ -423,7 +483,8 @@ export class CardsService {
     description?: string | null;
     position: number;
     boardId: string;
-    labels?: { id: string; name: string; color: string }[];
+    labels?: { color: string }[];
+    members?: { user: { avatar: string | null } }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardListResponse {
@@ -433,7 +494,10 @@ export class CardsService {
       description: c.description ?? undefined,
       position: c.position,
       boardId: c.boardId,
-      labels: c.labels ?? [],
+      labels: c.labels ?? [], // Only color
+      members: c.members?.map(m => ({
+        avatar: m.user.avatar ?? undefined, // Only avatar
+      })),
       dueDate: c.dueDate?.toISOString(),
       completed: c.completed,
     };
@@ -446,6 +510,7 @@ export class CardsService {
     position: number;
     boardId: string;
     labels?: { id: string; name: string; color: string }[];
+    members?: { id: string; userId: string; assignedAt: Date; user: { name: string; email: string; avatar: string | null } }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardResponse {
@@ -456,8 +521,179 @@ export class CardsService {
       position: c.position,
       boardId: c.boardId,
       labels: c.labels ?? [],
+      members: c.members?.map(m => ({
+        id: m.id,
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        avatar: m.user.avatar ?? undefined,
+        assignedAt: m.assignedAt,
+      })),
       dueDate: c.dueDate?.toISOString(),
       completed: c.completed,
     };
+  }
+
+  // Card Members Management
+  async getCardMembers(cardId: string, userId: string) {
+    await this.findOneOrThrow(cardId, userId);
+
+    const members = await this.prisma.cardMember.findMany({
+      where: { cardId },
+      select: {
+        id: true,
+        userId: true,
+        assignedAt: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    return members.map(m => ({
+      id: m.id,
+      userId: m.userId,
+      name: m.user.name,
+      email: m.user.email,
+      avatar: m.user.avatar ?? undefined,
+      assignedAt: m.assignedAt,
+    }));
+  }
+
+  async addCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+    // Verify current user has access to the card
+    await this.findOneOrThrow(cardId, currentUserId);
+
+    // Verify the member being added belongs to the environment
+    const card = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        board: {
+          select: {
+            environmentId: true,
+            environment: {
+              select: {
+                userId: true,
+                members: { where: { userId: memberUserId }, select: { userId: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!card) {
+      throw new NotFoundException('Card não encontrado');
+    }
+
+    const isOwner = card.board.environment.userId === memberUserId;
+    const isMember = card.board.environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
+      throw new NotFoundException('Usuário não é membro do ambiente');
+    }
+
+    // Check if member is already assigned
+    const existing = await this.prisma.cardMember.findUnique({
+      where: {
+        cardId_userId: {
+          cardId,
+          userId: memberUserId,
+        },
+      },
+    });
+
+    if (existing) {
+      return this.getCardMembers(cardId, currentUserId);
+    }
+
+    // Add the member
+    await this.prisma.cardMember.create({
+      data: {
+        cardId,
+        userId: memberUserId,
+      },
+    });
+
+    // Log the activity
+    const user = await this.prisma.user.findUnique({
+      where: { id: memberUserId },
+      select: { name: true },
+    });
+
+    this.activityLogsService.logAction(
+      cardId,
+      currentUserId,
+      'MEMBER_ADDED',
+      `${user?.name || 'Membro'} adicionado ao card`,
+    ).catch(err => console.error('Failed to log action', err));
+
+    // Emit WebSocket event for real-time update
+    const updatedCard = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        ...cardDetailSelect,
+        board: {
+          select: {
+            environmentId: true,
+          },
+        },
+      },
+    });
+
+    if (updatedCard) {
+      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+    }
+
+    return this.getCardMembers(cardId, currentUserId);
+  }
+
+  async removeCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+    // Verify current user has access to the card
+    await this.findOneOrThrow(cardId, currentUserId);
+
+    // Remove the member
+    await this.prisma.cardMember.deleteMany({
+      where: {
+        cardId,
+        userId: memberUserId,
+      },
+    });
+
+    // Log the activity
+    const user = await this.prisma.user.findUnique({
+      where: { id: memberUserId },
+      select: { name: true },
+    });
+
+    this.activityLogsService.logAction(
+      cardId,
+      currentUserId,
+      'MEMBER_REMOVED',
+      `${user?.name || 'Membro'} removido do card`,
+    ).catch(err => console.error('Failed to log action', err));
+
+    // Emit WebSocket event for real-time update
+    const updatedCard = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        ...cardDetailSelect,
+        board: {
+          select: {
+            environmentId: true,
+          },
+        },
+      },
+    });
+
+    if (updatedCard) {
+      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+    }
+
+    return this.getCardMembers(cardId, currentUserId);
   }
 }

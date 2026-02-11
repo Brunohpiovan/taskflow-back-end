@@ -12,50 +12,55 @@ export class MetricsService {
     constructor(private readonly prisma: PrismaService) { }
 
     async getMetrics(userId: string): Promise<MetricsResponseDto> {
-        // Executar todas as queries em paralelo para melhor performance
-        const [
-            totalEnvironments,
-            totalBoards,
-            cardStats,
-            cardsLast7Days,
-            overdueTasks,
-            tasksDueSoon,
-            totalComments,
-            recentActivity,
-            cardsByBoard,
-            cardsByLabel,
-        ] = await Promise.all([
-            this.getTotalEnvironments(userId),
-            this.getTotalBoards(userId),
-            this.getCardStats(userId),
-            this.getCardsLast7Days(userId),
-            this.getOverdueTasks(userId),
-            this.getTasksDueSoon(userId),
-            this.getTotalComments(userId),
-            this.getRecentActivity(userId),
-            this.getCardsByBoard(userId),
-            this.getCardsByLabel(userId),
-        ]);
+        try {
+            // Executar todas as queries em paralelo para melhor performance
+            const [
+                totalEnvironments,
+                totalBoards,
+                cardStats,
+                cardsLast7Days,
+                overdueTasks,
+                tasksDueSoon,
+                totalComments,
+                recentActivity,
+                cardsByBoard,
+                cardsByLabel,
+            ] = await Promise.all([
+                this.getTotalEnvironments(userId).catch(e => { console.error('Error fetching environments:', e); return 0; }),
+                this.getTotalBoards(userId).catch(e => { console.error('Error fetching boards:', e); return 0; }),
+                this.getCardStats(userId).catch(e => { console.error('Error fetching card stats:', e); return { total: 0, completed: 0 }; }),
+                this.getCardsLast7Days(userId).catch(e => { console.error('Error fetching last 7 days:', e); return { created: 0, completed: 0 }; }),
+                this.getOverdueTasks(userId).catch(e => { console.error('Error fetching overdue:', e); return 0; }),
+                this.getTasksDueSoon(userId).catch(e => { console.error('Error fetching due soon:', e); return 0; }),
+                this.getTotalComments(userId).catch(e => { console.error('Error fetching comments:', e); return 0; }),
+                this.getRecentActivity(userId).catch(e => { console.error('Error fetching activity:', e); return []; }),
+                this.getCardsByBoard(userId).catch(e => { console.error('Error fetching cards by board:', e); return []; }),
+                this.getCardsByLabel(userId).catch(e => { console.error('Error fetching cards by label:', e); return []; }),
+            ]);
 
-        const completionRate =
-            cardStats.total > 0
-                ? Math.round((cardStats.completed / cardStats.total) * 100)
-                : 0;
+            const completionRate =
+                cardStats.total > 0
+                    ? Math.round((cardStats.completed / cardStats.total) * 100)
+                    : 0;
 
-        return {
-            totalEnvironments,
-            totalBoards,
-            totalCards: cardStats.total,
-            completionRate,
-            cardsCreatedLast7Days: cardsLast7Days.created,
-            cardsCompletedLast7Days: cardsLast7Days.completed,
-            overdueTasks,
-            tasksDueSoon,
-            totalComments,
-            recentActivity,
-            cardsByBoard,
-            cardsByLabel,
-        };
+            return {
+                totalEnvironments,
+                totalBoards,
+                totalCards: cardStats.total,
+                completionRate,
+                cardsCreatedLast7Days: cardsLast7Days.created,
+                cardsCompletedLast7Days: cardsLast7Days.completed,
+                overdueTasks,
+                tasksDueSoon,
+                totalComments,
+                recentActivity,
+                cardsByBoard,
+                cardsByLabel,
+            };
+        } catch (error) {
+            console.error('Error in getMetrics:', error);
+            throw error;
+        }
     }
 
     private async getTotalEnvironments(userId: string): Promise<number> {
@@ -188,7 +193,7 @@ export class MetricsService {
     }
 
     private async getRecentActivity(userId: string): Promise<ActivityItem[]> {
-        // Usar GROUP BY para evitar duplicatas em vez de DISTINCT
+        // CORREÇÃO: Usar MAX() para campos que não estão no GROUP BY e são dependentes funcionalmente
         const activities = await this.prisma.$queryRaw<
             Array<{
                 id: string;
@@ -200,18 +205,18 @@ export class MetricsService {
         >`
       SELECT 
         al.id,
-        al.action,
-        al.details,
-        al.created_at,
-        c.title as card_title
+        MAX(al.action) as action,
+        MAX(al.details) as details,
+        MAX(al.created_at) as created_at,
+        MAX(c.title) as card_title
       FROM activity_logs al
       INNER JOIN cards c ON al.card_id = c.id
       INNER JOIN boards b ON c.board_id = b.id
       INNER JOIN environments e ON b.environment_id = e.id
       LEFT JOIN environment_members em ON e.id = em.environment_id
       WHERE (e.user_id = ${userId} OR em.user_id = ${userId})
-      GROUP BY al.id, al.action, al.details, al.created_at, c.title
-      ORDER BY al.created_at DESC
+      GROUP BY al.id
+      ORDER BY created_at DESC
       LIMIT 3
     `;
 

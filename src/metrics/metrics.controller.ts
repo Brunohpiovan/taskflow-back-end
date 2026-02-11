@@ -14,6 +14,11 @@ export class MetricsController {
     @Get()
     @ApiOperation({ summary: 'Obter métricas agregadas do usuário' })
     async getMetrics(@CurrentUser() user: JwtPayload): Promise<MetricsResponseDto> {
-        return this.metricsService.getMetrics(user.sub);
+        try {
+            return await this.metricsService.getMetrics(user.sub);
+        } catch (error) {
+            console.error('Error fetching metrics:', error);
+            throw error;
+        }
     }
 }
