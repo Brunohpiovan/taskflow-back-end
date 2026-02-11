@@ -28,6 +28,20 @@ const cardListSelect = {
       color: true,
     },
   },
+  members: {
+    select: {
+      id: true,
+      userId: true,
+      assignedAt: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+    },
+  },
 } as const;
 
 // Full select for card details
@@ -45,6 +59,20 @@ const cardDetailSelect = {
       environmentId: true,
     },
   },
+  members: {
+    select: {
+      id: true,
+      userId: true,
+      assignedAt: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+          avatar: true,
+        },
+      },
+    },
+  },
   dueDate: true,
   completed: true,
 } as const;
@@ -56,6 +84,7 @@ export interface CardListResponse {
   position: number;
   boardId: string;
   labels: { id: string; name: string; color: string }[];
+  members?: { id: string; userId: string; name: string; email: string; avatar?: string; assignedAt: Date }[];
   dueDate?: string;
   completed: boolean;
 }
@@ -67,6 +96,7 @@ export interface CardResponse {
   position: number;
   boardId: string;
   labels: { id: string; name: string; color: string }[];
+  members?: { id: string; userId: string; name: string; email: string; avatar?: string; assignedAt: Date }[];
   dueDate?: string;
   completed: boolean;
 }
@@ -424,6 +454,7 @@ export class CardsService {
     position: number;
     boardId: string;
     labels?: { id: string; name: string; color: string }[];
+    members?: { id: string; userId: string; assignedAt: Date; user: { name: string; email: string; avatar: string | null } }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardListResponse {
@@ -434,6 +465,14 @@ export class CardsService {
       position: c.position,
       boardId: c.boardId,
       labels: c.labels ?? [],
+      members: c.members?.map(m => ({
+        id: m.id,
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        avatar: m.user.avatar ?? undefined,
+        assignedAt: m.assignedAt,
+      })),
       dueDate: c.dueDate?.toISOString(),
       completed: c.completed,
     };
@@ -446,6 +485,7 @@ export class CardsService {
     position: number;
     boardId: string;
     labels?: { id: string; name: string; color: string }[];
+    members?: { id: string; userId: string; assignedAt: Date; user: { name: string; email: string; avatar: string | null } }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardResponse {
@@ -456,8 +496,145 @@ export class CardsService {
       position: c.position,
       boardId: c.boardId,
       labels: c.labels ?? [],
+      members: c.members?.map(m => ({
+        id: m.id,
+        userId: m.userId,
+        name: m.user.name,
+        email: m.user.email,
+        avatar: m.user.avatar ?? undefined,
+        assignedAt: m.assignedAt,
+      })),
       dueDate: c.dueDate?.toISOString(),
       completed: c.completed,
     };
+  }
+
+  // Card Members Management
+  async getCardMembers(cardId: string, userId: string) {
+    await this.findOneOrThrow(cardId, userId);
+
+    const members = await this.prisma.cardMember.findMany({
+      where: { cardId },
+      select: {
+        id: true,
+        userId: true,
+        assignedAt: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    return members.map(m => ({
+      id: m.id,
+      userId: m.userId,
+      name: m.user.name,
+      email: m.user.email,
+      avatar: m.user.avatar ?? undefined,
+      assignedAt: m.assignedAt,
+    }));
+  }
+
+  async addCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+    // Verify current user has access to the card
+    await this.findOneOrThrow(cardId, currentUserId);
+
+    // Verify the member being added belongs to the environment
+    const card = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        board: {
+          select: {
+            environmentId: true,
+            environment: {
+              select: {
+                userId: true,
+                members: { where: { userId: memberUserId }, select: { userId: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!card) {
+      throw new NotFoundException('Card não encontrado');
+    }
+
+    const isOwner = card.board.environment.userId === memberUserId;
+    const isMember = card.board.environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
+      throw new NotFoundException('Usuário não é membro do ambiente');
+    }
+
+    // Check if member is already assigned
+    const existing = await this.prisma.cardMember.findUnique({
+      where: {
+        cardId_userId: {
+          cardId,
+          userId: memberUserId,
+        },
+      },
+    });
+
+    if (existing) {
+      return this.getCardMembers(cardId, currentUserId);
+    }
+
+    // Add the member
+    await this.prisma.cardMember.create({
+      data: {
+        cardId,
+        userId: memberUserId,
+      },
+    });
+
+    // Log the activity
+    const user = await this.prisma.user.findUnique({
+      where: { id: memberUserId },
+      select: { name: true },
+    });
+
+    this.activityLogsService.logAction(
+      cardId,
+      currentUserId,
+      'MEMBER_ADDED',
+      `${user?.name || 'Membro'} adicionado ao card`,
+    ).catch(err => console.error('Failed to log action', err));
+
+    return this.getCardMembers(cardId, currentUserId);
+  }
+
+  async removeCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+    // Verify current user has access to the card
+    await this.findOneOrThrow(cardId, currentUserId);
+
+    // Remove the member
+    await this.prisma.cardMember.deleteMany({
+      where: {
+        cardId,
+        userId: memberUserId,
+      },
+    });
+
+    // Log the activity
+    const user = await this.prisma.user.findUnique({
+      where: { id: memberUserId },
+      select: { name: true },
+    });
+
+    this.activityLogsService.logAction(
+      cardId,
+      currentUserId,
+      'MEMBER_REMOVED',
+      `${user?.name || 'Membro'} removido do card`,
+    ).catch(err => console.error('Failed to log action', err));
+
+    return this.getCardMembers(cardId, currentUserId);
   }
 }

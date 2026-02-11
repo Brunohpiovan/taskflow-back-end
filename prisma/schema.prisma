@@ -26,6 +26,7 @@ model User {
   comments     Comment[]
   activityLogs ActivityLog[]
   memberships  EnvironmentMember[]
+  cardAssignments CardMember[]
 
   @@map("users")
 }
@@ -78,6 +79,7 @@ model Card {
   labels      Label[]
   comments    Comment[]
   activityLogs ActivityLog[]
+  members     CardMember[]
 
   @@map("cards")
 }
@@ -162,6 +164,19 @@ model Invite {
 
   @@index([email])
   @@map("invites")
+}
+
+model CardMember {
+  id         String   @id @default(uuid())
+  cardId     String   @map("card_id")
+  userId     String   @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([cardId, userId])
+  @@map("card_members")
 }
 
 enum MemberRole {
