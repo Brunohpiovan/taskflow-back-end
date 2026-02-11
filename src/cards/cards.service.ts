@@ -227,7 +227,7 @@ export class CardsService {
       select: { environmentId: true },
     });
     if (boardForEvent) {
-      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, { ...card, userId });
+      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, { ...this.toResponse(card), userId });
     }
 
     return this.toResponse(card);
@@ -274,7 +274,7 @@ export class CardsService {
       select: { environmentId: true },
     });
     if (board) {
-      this.eventsGateway.emitCardUpdated(board.environmentId, { ...card, userId });
+      this.eventsGateway.emitCardUpdated(board.environmentId, { ...this.toResponse(card), userId });
     }
 
     return this.toResponse(card);
