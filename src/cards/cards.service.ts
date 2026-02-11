@@ -595,6 +595,23 @@ export class CardsService {
       `${user?.name || 'Membro'} adicionado ao card`,
     ).catch(err => console.error('Failed to log action', err));
 
+    // Emit WebSocket event for real-time update
+    const updatedCard = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        ...cardDetailSelect,
+        board: {
+          select: {
+            environmentId: true,
+          },
+        },
+      },
+    });
+
+    if (updatedCard) {
+      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+    }
+
     return this.getCardMembers(cardId, currentUserId);
   }
 
@@ -622,6 +639,23 @@ export class CardsService {
       'MEMBER_REMOVED',
       `${user?.name || 'Membro'} removido do card`,
     ).catch(err => console.error('Failed to log action', err));
+
+    // Emit WebSocket event for real-time update
+    const updatedCard = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        ...cardDetailSelect,
+        board: {
+          select: {
+            environmentId: true,
+          },
+        },
+      },
+    });
+
+    if (updatedCard) {
+      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+    }
 
     return this.getCardMembers(cardId, currentUserId);
   }
