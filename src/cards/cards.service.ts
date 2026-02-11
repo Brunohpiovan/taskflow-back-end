@@ -155,7 +155,37 @@ export class CardsService {
   }
 
   async create(userId: string, dto: CreateCardDto): Promise<CardResponse> {
-    await this.boardsService.findOneForUser(dto.boardId, userId);
+    console.log('CardsService.create - Members:', dto.members);
+    const board = await this.boardsService.findOneForUser(dto.boardId, userId);
+
+    // Validate members belong to the environment
+    if (dto.members && dto.members.length > 0) {
+      const environment = await this.prisma.environment.findUnique({
+        where: { id: board.environmentId },
+        select: {
+          userId: true,
+          members: {
+            where: { userId: { in: dto.members } },
+            select: { userId: true },
+          },
+        },
+      });
+
+      if (!environment) {
+        throw new NotFoundException('Ambiente não encontrado');
+      }
+
+      const validMemberIds = new Set([
+        environment.userId, // Owner
+        ...environment.members.map(m => m.userId), // Members
+      ]);
+
+      const invalidMembers = dto.members.filter(id => !validMemberIds.has(id));
+      if (invalidMembers.length > 0) {
+        throw new NotFoundException('Um ou mais usuários não pertencem ao ambiente');
+      }
+    }
+
     const position =
       dto.position ??
       (await this.prisma.card.count({ where: { boardId: dto.boardId } }));
@@ -172,6 +202,13 @@ export class CardsService {
             connect: dto.labels.map((id) => ({ id })),
           }
           : undefined,
+        members: dto.members
+          ? {
+            create: dto.members.map((memberId) => ({
+              userId: memberId,
+            })),
+          }
+          : undefined,
       },
       select: cardDetailSelect,
     });
@@ -185,12 +222,12 @@ export class CardsService {
     ).catch(err => console.error('Failed to log action', err));
 
     // Fetch envId for event
-    const board = await this.prisma.board.findUnique({
+    const boardForEvent = await this.prisma.board.findUnique({
       where: { id: dto.boardId },
       select: { environmentId: true },
     });
-    if (board) {
-      this.eventsGateway.emitCardCreated(board.environmentId, { ...card, userId });
+    if (boardForEvent) {
+      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, { ...card, userId });
     }
 
     return this.toResponse(card);

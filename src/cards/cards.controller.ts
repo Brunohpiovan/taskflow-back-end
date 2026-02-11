@@ -33,6 +33,7 @@ export class CardsController {
   @Post()
   @ApiOperation({ summary: 'Criar card' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateCardDto) {
+    console.log('Creating card DTO:', JSON.stringify(dto, null, 2));
     return this.cardsService.create(user.sub, dto);
   }
 
