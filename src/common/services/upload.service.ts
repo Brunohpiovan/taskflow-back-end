@@ -75,14 +75,9 @@ export class UploadService {
 
     async getSignedDownloadUrl(key: string, filename: string): Promise<string> {
         try {
-            const command = new GetObjectCommand({
-                Bucket: this.bucketName,
-                Key: key,
-                ResponseContentDisposition: `attachment; filename="${filename}"`,
-            });
-
-            // Expiration time in seconds (e.g., 15 minutes)
-            const url = await getSignedUrl(this.s3Client, command, { expiresIn: 900 });
+            // User requested to remove signed URL logic as it was causing issues (blank images).
+            // Returning the direct public URL instead, matching the uploadFile behavior.
+            const url = `https://${this.bucketName}.s3.${this.configService.get<string>('AWS_REGION')}.amazonaws.com/${key}`;
             return url;
         } catch (error) {
             console.error('Error generating signed URL:', error);
