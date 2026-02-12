@@ -75,13 +75,36 @@ export class UploadService {
 
     async getSignedDownloadUrl(key: string, filename: string): Promise<string> {
         try {
-            // User requested to remove signed URL logic as it was causing issues (blank images).
-            // Returning the direct public URL instead, matching the uploadFile behavior.
-            const url = `https://${this.bucketName}.s3.${this.configService.get<string>('AWS_REGION')}.amazonaws.com/${key}`;
+            // Ensure filename is safe for HTTP headers (ASCII only)
+            // This prevents "SignatureDoesNotMatch" errors caused by special characters like spaces, parentheses or accents in the filename parameter
+            const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+            const command = new GetObjectCommand({
+                Bucket: this.bucketName,
+                Key: key,
+                ResponseContentDisposition: `attachment; filename="${safeFilename}"`,
+            });
+
+            // Generate a presigned URL valid for 15 minutes
+            const url = await getSignedUrl(this.s3Client, command, { expiresIn: 900 });
             return url;
         } catch (error) {
             console.error('Error generating signed URL:', error);
             throw new InternalServerErrorException('Falha ao gerar link de download');
+        }
+    }
+
+    async downloadFile(key: string): Promise<any> {
+        try {
+            const command = new GetObjectCommand({
+                Bucket: this.bucketName,
+                Key: key
+            });
+
+            return await this.s3Client.send(command);
+        } catch (error) {
+            console.error('Error downloading file from S3:', error);
+            throw new InternalServerErrorException('Falha ao baixar arquivo do armazenamento');
         }
     }
 }

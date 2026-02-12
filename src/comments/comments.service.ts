@@ -211,7 +211,12 @@ export class CommentsService {
       throw new NotFoundException('Arquivo não encontrado no armazenamento');
     }
 
-    const url = await this.uploadService.getSignedDownloadUrl(attachment.key, attachment.filename);
-    return { url };
+    const fileStream = await this.uploadService.downloadFile(attachment.key);
+
+    return {
+      stream: fileStream.Body,
+      contentType: fileStream.ContentType,
+      filename: attachment.filename
+    };
   }
 }

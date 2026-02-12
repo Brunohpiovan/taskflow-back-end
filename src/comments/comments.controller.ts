@@ -11,7 +11,9 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
@@ -73,8 +75,18 @@ export class CommentsController {
     return this.commentsService.remove(id, user.sub);
   }
   @Get('attachment/:id/download')
-  @ApiOperation({ summary: 'Get download URL for an attachment' })
-  getDownloadUrl(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.commentsService.getAttachmentDownloadUrl(id, user.sub);
+  @ApiOperation({ summary: 'Download attachment file' })
+  async download(@CurrentUser() user: any, @Param('id') id: string, @Res() res: Response) {
+    const { stream, contentType, filename } = await this.commentsService.getAttachmentDownloadUrl(id, user.sub);
+
+    // Sanitize filename for header
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+    });
+
+    stream.pipe(res);
   }
 }
