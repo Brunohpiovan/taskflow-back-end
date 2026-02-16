@@ -41,4 +41,4 @@ import { MetricsModule } from './metrics/metrics.module';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}

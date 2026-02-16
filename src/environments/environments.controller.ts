@@ -39,6 +39,19 @@ export class EnvironmentsController {
     }
   }
 
+  @Get('simple')
+  @ApiOperation({
+    summary: 'Listar ambientes simplificado (apenas id, nome e slug)',
+  })
+  findAllSimple(@CurrentUser() user: JwtPayload) {
+    try {
+      return this.environmentsService.findAllSimple(user.sub);
+    } catch (error) {
+      console.error('Error fetching simple environments:', error);
+      throw error;
+    }
+  }
+
   @Get()
   @ApiOperation({ summary: 'Listar ambientes do usuário' })
   findAll(@CurrentUser() user: JwtPayload) {

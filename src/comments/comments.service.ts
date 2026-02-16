@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UploadService } from '../common/services/upload.service';
@@ -8,9 +12,13 @@ export class CommentsService {
   constructor(
     private prisma: PrismaService,
     private uploadService: UploadService,
-  ) { }
+  ) {}
 
-  async create(userId: string, createCommentDto: CreateCommentDto, file?: Express.Multer.File) {
+  async create(
+    userId: string,
+    createCommentDto: CreateCommentDto,
+    file?: Express.Multer.File,
+  ) {
     const { cardId, content } = createCommentDto;
 
     // Verify card exists AND user is a member of the environment
@@ -46,7 +54,10 @@ export class CommentsService {
 
     let attachmentData = null;
     if (file) {
-      const { url, key } = await this.uploadService.uploadFile(file, 'comments');
+      const { url, key } = await this.uploadService.uploadFile(
+        file,
+        'comments',
+      );
       attachmentData = {
         url,
         key,
@@ -119,7 +130,10 @@ export class CommentsService {
                 environment: {
                   select: {
                     userId: true,
-                    members: { where: { userId }, select: { userId: true, role: true } },
+                    members: {
+                      where: { userId },
+                      select: { userId: true, role: true },
+                    },
                   },
                 },
               },
@@ -157,11 +171,15 @@ export class CommentsService {
     if (commentWithAttachments?.attachments) {
       for (const attachment of commentWithAttachments.attachments) {
         if (attachment.key) {
-          // We do not await here to not block the response if S3 is slow, 
-          // but for reliability it might be better to await. 
+          // We do not await here to not block the response if S3 is slow,
+          // but for reliability it might be better to await.
           // Given the task is "optimized", firing and forgetting or awaiting are both valid choices depending on consistency requirements.
           // I'll await to ensure cleanups.
-          await this.uploadService.deleteFile(attachment.key).catch(e => console.error(`Failed to delete file ${attachment.key}`, e));
+          await this.uploadService
+            .deleteFile(attachment.key)
+            .catch((e) =>
+              console.error(`Failed to delete file ${attachment.key}`, e),
+            );
         }
       }
     }
@@ -182,7 +200,10 @@ export class CommentsService {
                     environment: {
                       select: {
                         userId: true,
-                        members: { where: { userId }, select: { userId: true } },
+                        members: {
+                          where: { userId },
+                          select: { userId: true },
+                        },
                       },
                     },
                   },
@@ -204,7 +225,9 @@ export class CommentsService {
     const isMember = environment.members.length > 0;
 
     if (!isOwner && !isMember) {
-      throw new ForbiddenException('Você não tem permissão para acessar este anexo');
+      throw new ForbiddenException(
+        'Você não tem permissão para acessar este anexo',
+      );
     }
 
     if (!attachment.key) {
@@ -216,7 +239,7 @@ export class CommentsService {
     return {
       stream: fileStream.Body,
       contentType: fileStream.ContentType,
-      filename: attachment.filename
+      filename: attachment.filename,
     };
   }
 }

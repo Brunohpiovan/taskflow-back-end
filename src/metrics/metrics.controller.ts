@@ -9,16 +9,18 @@ import { MetricsResponseDto } from './dto/metrics-response.dto';
 @ApiBearerAuth('JWT')
 @Controller('metrics')
 export class MetricsController {
-    constructor(private readonly metricsService: MetricsService) { }
+  constructor(private readonly metricsService: MetricsService) {}
 
-    @Get()
-    @ApiOperation({ summary: 'Obter métricas agregadas do usuário' })
-    async getMetrics(@CurrentUser() user: JwtPayload): Promise<MetricsResponseDto> {
-        try {
-            return await this.metricsService.getMetrics(user.sub);
-        } catch (error) {
-            console.error('Error fetching metrics:', error);
-            throw error;
-        }
+  @Get()
+  @ApiOperation({ summary: 'Obter métricas agregadas do usuário' })
+  async getMetrics(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<MetricsResponseDto> {
+    try {
+      return await this.metricsService.getMetrics(user.sub);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      throw error;
     }
+  }
 }

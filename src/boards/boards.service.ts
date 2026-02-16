@@ -42,7 +42,7 @@ export class BoardsService {
     private prisma: PrismaService,
     private eventsGateway: EventsGateway,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) { }
+  ) {}
 
   async findByEnvironmentId(
     environmentId: string,
@@ -123,7 +123,10 @@ export class BoardsService {
     });
 
     const response = this.toResponse(board);
-    this.eventsGateway.emitBoardCreated(dto.environmentId, { ...response, userId });
+    this.eventsGateway.emitBoardCreated(dto.environmentId, {
+      ...response,
+      userId,
+    });
     await this.cacheManager.del(`boards:env:${dto.environmentId}`);
     return response;
   }
@@ -160,7 +163,10 @@ export class BoardsService {
     });
 
     const response = this.toResponse(updated);
-    this.eventsGateway.emitBoardUpdated(board.environmentId, { ...response, userId });
+    this.eventsGateway.emitBoardUpdated(board.environmentId, {
+      ...response,
+      userId,
+    });
     await this.cacheManager.del(`boards:env:${board.environmentId}`);
     return response;
   }
@@ -168,7 +174,10 @@ export class BoardsService {
   async remove(id: string, userId: string): Promise<void> {
     const board = await this.findOneOrThrow(id, userId);
     await this.prisma.board.delete({ where: { id } });
-    this.eventsGateway.emitBoardDeleted(board.environmentId, { boardId: id, userId });
+    this.eventsGateway.emitBoardDeleted(board.environmentId, {
+      boardId: id,
+      userId,
+    });
     await this.cacheManager.del(`boards:env:${board.environmentId}`);
   }
 

@@ -10,7 +10,7 @@ interface RequestWithUser {
 @ApiTags('Members')
 @Controller('environments/:id/members')
 export class MembersController {
-  constructor(private readonly membersService: MembersService) { }
+  constructor(private readonly membersService: MembersService) {}
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

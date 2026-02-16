@@ -7,6 +7,8 @@ import {
   Delete,
   Body,
   Param,
+  Query,
+  BadRequestException,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -23,6 +25,20 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 @Controller('cards')
 export class CardsController {
   constructor(private readonly cardsService: CardsService) { }
+
+  @Get('calendar')
+  @ApiOperation({
+    summary: 'Listar cards com data de entrega para o calendário',
+  })
+  getCalendarCards(
+    @Query('environmentId') environmentId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!environmentId) {
+      throw new BadRequestException('environmentId é obrigatório');
+    }
+    return this.cardsService.findAllWithDueDate(environmentId, user.sub);
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Buscar detalhes completos de um card' })

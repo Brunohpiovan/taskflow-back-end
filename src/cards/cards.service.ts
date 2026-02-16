@@ -70,6 +70,16 @@ const cardDetailSelect = {
   completed: true,
 } as const;
 
+// Minimal select for calendar view
+const calendarCardSelect = {
+  id: true,
+  title: true,
+  boardId: true,
+  dueDate: true,
+  completed: true,
+} as const;
+
+
 export interface CardListResponse {
   id: string;
   title: string;
@@ -89,7 +99,22 @@ export interface CardResponse {
   position: number;
   boardId: string;
   labels: { id: string; name: string; color: string }[];
-  members?: { id: string; userId: string; name: string; email: string; avatar?: string; assignedAt: Date }[];
+  members?: {
+    id: string;
+    userId: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    assignedAt: Date;
+  }[];
+  dueDate?: string;
+  completed: boolean;
+}
+
+export interface CalendarCardResponse {
+  id: string;
+  title: string;
+  boardId: string;
   dueDate?: string;
   completed: boolean;
 }
@@ -117,6 +142,48 @@ export class CardsService {
       orderBy: { position: 'asc' },
     });
     return cards.map((c) => this.toListResponse(c));
+  }
+
+  async findAllWithDueDate(
+    environmentId: string,
+    userId: string,
+  ): Promise<CalendarCardResponse[]> {
+    // Verify user access to environment
+    const environment = await this.prisma.environment.findUnique({
+      where: { id: environmentId },
+      select: {
+        userId: true,
+        members: { where: { userId }, select: { userId: true } },
+      },
+    });
+
+    if (!environment) {
+      throw new NotFoundException('Ambiente não encontrado');
+    }
+
+    const isOwner = environment.userId === userId;
+    const isMember = environment.members.length > 0;
+
+    if (!isOwner && !isMember) {
+      throw new NotFoundException('Acesso negado');
+    }
+
+    const cards = await this.prisma.card.findMany({
+      where: {
+        board: { environmentId },
+        dueDate: { not: null },
+      },
+      select: calendarCardSelect,
+      orderBy: { dueDate: 'asc' },
+    });
+
+    return cards.map((c) => ({
+      id: c.id,
+      title: c.title,
+      boardId: c.boardId,
+      dueDate: c.dueDate?.toISOString(),
+      completed: c.completed,
+    }));
   }
 
   async findOne(id: string, userId: string): Promise<CardResponse> {
@@ -177,12 +244,16 @@ export class CardsService {
 
       const validMemberIds = new Set([
         environment.userId, // Owner
-        ...environment.members.map(m => m.userId), // Members
+        ...environment.members.map((m) => m.userId), // Members
       ]);
 
-      const invalidMembers = dto.members.filter(id => !validMemberIds.has(id));
+      const invalidMembers = dto.members.filter(
+        (id) => !validMemberIds.has(id),
+      );
       if (invalidMembers.length > 0) {
-        throw new NotFoundException('Um ou mais usuários não pertencem ao ambiente');
+        throw new NotFoundException(
+          'Um ou mais usuários não pertencem ao ambiente',
+        );
       }
     }
 
@@ -214,12 +285,9 @@ export class CardsService {
     });
 
     // Fire-and-forget logging
-    this.activityLogsService.logAction(
-      card.id,
-      userId,
-      'CREATED',
-      `Card criado: ${card.title}`,
-    ).catch(err => console.error('Failed to log action', err));
+    this.activityLogsService
+      .logAction(card.id, userId, 'CREATED', `Card criado: ${card.title}`)
+      .catch((err) => console.error('Failed to log action', err));
 
     // Fetch envId for event
     const boardForEvent = await this.prisma.board.findUnique({
@@ -227,7 +295,10 @@ export class CardsService {
       select: { environmentId: true },
     });
     if (boardForEvent) {
-      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, { ...this.toResponse(card), userId });
+      this.eventsGateway.emitCardCreated(boardForEvent.environmentId, {
+        ...this.toResponse(card),
+        userId,
+      });
     }
 
     return this.toResponse(card);
@@ -262,19 +333,19 @@ export class CardsService {
     });
 
     // Fire-and-forget logging
-    this.activityLogsService.logAction(
-      card.id,
-      userId,
-      'UPDATED',
-      'Card atualizado',
-    ).catch(err => console.error('Failed to log action', err));
+    this.activityLogsService
+      .logAction(card.id, userId, 'UPDATED', 'Card atualizado')
+      .catch((err) => console.error('Failed to log action', err));
 
     const board = await this.prisma.board.findUnique({
       where: { id: card.boardId },
       select: { environmentId: true },
     });
     if (board) {
-      this.eventsGateway.emitCardUpdated(board.environmentId, { ...this.toResponse(card), userId });
+      this.eventsGateway.emitCardUpdated(board.environmentId, {
+        ...this.toResponse(card),
+        userId,
+      });
     }
 
     return this.toResponse(card);
@@ -387,12 +458,9 @@ export class CardsService {
     });
 
     // Fire-and-forget logging
-    this.activityLogsService.logAction(
-      id,
-      userId,
-      'MOVED',
-      `Card movido para nova posição/quadro`,
-    ).catch(err => console.error('Failed to log action', err));
+    this.activityLogsService
+      .logAction(id, userId, 'MOVED', `Card movido para nova posição/quadro`)
+      .catch((err) => console.error('Failed to log action', err));
 
     // Emit event
     // We need environmentId. card object passed in has boardId, but not envId.
@@ -495,7 +563,7 @@ export class CardsService {
       position: c.position,
       boardId: c.boardId,
       labels: c.labels ?? [], // Only color
-      members: c.members?.map(m => ({
+      members: c.members?.map((m) => ({
         avatar: m.user.avatar ?? undefined, // Only avatar
       })),
       dueDate: c.dueDate?.toISOString(),
@@ -510,7 +578,12 @@ export class CardsService {
     position: number;
     boardId: string;
     labels?: { id: string; name: string; color: string }[];
-    members?: { id: string; userId: string; assignedAt: Date; user: { name: string; email: string; avatar: string | null } }[];
+    members?: {
+      id: string;
+      userId: string;
+      assignedAt: Date;
+      user: { name: string; email: string; avatar: string | null };
+    }[];
     dueDate?: Date | null;
     completed: boolean;
   }): CardResponse {
@@ -521,7 +594,7 @@ export class CardsService {
       position: c.position,
       boardId: c.boardId,
       labels: c.labels ?? [],
-      members: c.members?.map(m => ({
+      members: c.members?.map((m) => ({
         id: m.id,
         userId: m.userId,
         name: m.user.name,
@@ -554,7 +627,7 @@ export class CardsService {
       },
     });
 
-    return members.map(m => ({
+    return members.map((m) => ({
       id: m.id,
       userId: m.userId,
       name: m.user.name,
@@ -564,7 +637,11 @@ export class CardsService {
     }));
   }
 
-  async addCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+  async addCardMember(
+    cardId: string,
+    memberUserId: string,
+    currentUserId: string,
+  ) {
     // Verify current user has access to the card
     await this.findOneOrThrow(cardId, currentUserId);
 
@@ -578,7 +655,10 @@ export class CardsService {
             environment: {
               select: {
                 userId: true,
-                members: { where: { userId: memberUserId }, select: { userId: true } },
+                members: {
+                  where: { userId: memberUserId },
+                  select: { userId: true },
+                },
               },
             },
           },
@@ -625,12 +705,14 @@ export class CardsService {
       select: { name: true },
     });
 
-    this.activityLogsService.logAction(
-      cardId,
-      currentUserId,
-      'MEMBER_ADDED',
-      `${user?.name || 'Membro'} adicionado ao card`,
-    ).catch(err => console.error('Failed to log action', err));
+    this.activityLogsService
+      .logAction(
+        cardId,
+        currentUserId,
+        'MEMBER_ADDED',
+        `${user?.name || 'Membro'} adicionado ao card`,
+      )
+      .catch((err) => console.error('Failed to log action', err));
 
     // Emit WebSocket event for real-time update
     const updatedCard = await this.prisma.card.findUnique({
@@ -646,13 +728,20 @@ export class CardsService {
     });
 
     if (updatedCard) {
-      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+      this.eventsGateway.emitCardUpdated(
+        updatedCard.board.environmentId,
+        this.toResponse(updatedCard),
+      );
     }
 
     return this.getCardMembers(cardId, currentUserId);
   }
 
-  async removeCardMember(cardId: string, memberUserId: string, currentUserId: string) {
+  async removeCardMember(
+    cardId: string,
+    memberUserId: string,
+    currentUserId: string,
+  ) {
     // Verify current user has access to the card
     await this.findOneOrThrow(cardId, currentUserId);
 
@@ -670,12 +759,14 @@ export class CardsService {
       select: { name: true },
     });
 
-    this.activityLogsService.logAction(
-      cardId,
-      currentUserId,
-      'MEMBER_REMOVED',
-      `${user?.name || 'Membro'} removido do card`,
-    ).catch(err => console.error('Failed to log action', err));
+    this.activityLogsService
+      .logAction(
+        cardId,
+        currentUserId,
+        'MEMBER_REMOVED',
+        `${user?.name || 'Membro'} removido do card`,
+      )
+      .catch((err) => console.error('Failed to log action', err));
 
     // Emit WebSocket event for real-time update
     const updatedCard = await this.prisma.card.findUnique({
@@ -691,7 +782,10 @@ export class CardsService {
     });
 
     if (updatedCard) {
-      this.eventsGateway.emitCardUpdated(updatedCard.board.environmentId, this.toResponse(updatedCard));
+      this.eventsGateway.emitCardUpdated(
+        updatedCard.board.environmentId,
+        this.toResponse(updatedCard),
+      );
     }
 
     return this.getCardMembers(cardId, currentUserId);

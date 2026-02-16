@@ -4,9 +4,9 @@ import { MetricsService } from './metrics.service';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [MetricsController],
-    providers: [MetricsService],
-    exports: [MetricsService],
+  imports: [PrismaModule],
+  controllers: [MetricsController],
+  providers: [MetricsService],
+  exports: [MetricsService],
 })
-export class MetricsModule { }
+export class MetricsModule {}
