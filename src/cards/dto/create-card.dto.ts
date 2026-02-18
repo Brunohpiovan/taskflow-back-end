@@ -44,7 +44,10 @@ export class CreateCardDto {
   @IsString({ each: true })
   labels?: string[];
 
-  @ApiPropertyOptional({ type: [String], description: 'User IDs to assign as members' })
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'User IDs to assign as members',
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

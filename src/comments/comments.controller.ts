@@ -25,22 +25,32 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 @Controller('comments')
 @UseGuards(JwtAuthGuard)
 export class CommentsController {
-  constructor(private readonly commentsService: CommentsService) { }
+  constructor(private readonly commentsService: CommentsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/') ||
-        file.mimetype === 'application/pdf' ||
-        file.mimetype === 'application/msword' ||
-        file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        cb(null, true);
-      } else {
-        cb(new BadRequestException('Apenas imagens e documentos (PDF, DOC, DOCX) são permitidos'), false);
-      }
-    },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+      fileFilter: (req, file, cb) => {
+        if (
+          file.mimetype.startsWith('image/') ||
+          file.mimetype === 'application/pdf' ||
+          file.mimetype === 'application/msword' ||
+          file.mimetype ===
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ) {
+          cb(null, true);
+        } else {
+          cb(
+            new BadRequestException(
+              'Apenas imagens e documentos (PDF, DOC, DOCX) são permitidos',
+            ),
+            false,
+          );
+        }
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Add a comment to a card' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -59,7 +69,7 @@ export class CommentsController {
   create(
     @CurrentUser() user: any,
     @Body() createCommentDto: CreateCommentDto,
-    @UploadedFile() file: Express.Multer.File
+    @UploadedFile() file: Express.Multer.File,
   ) {
     return this.commentsService.create(user.sub, createCommentDto, file);
   }
@@ -76,8 +86,13 @@ export class CommentsController {
   }
   @Get('attachment/:id/download')
   @ApiOperation({ summary: 'Download attachment file' })
-  async download(@CurrentUser() user: any, @Param('id') id: string, @Res() res: Response) {
-    const { stream, contentType, filename } = await this.commentsService.getAttachmentDownloadUrl(id, user.sub);
+  async download(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const { stream, contentType, filename } =
+      await this.commentsService.getAttachmentDownloadUrl(id, user.sub);
 
     // Sanitize filename for header
     const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');

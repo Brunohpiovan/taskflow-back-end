@@ -78,13 +78,21 @@ export class MailService {
       });
 
       if (error) {
-        console.error(`[MailService] Error sending password reset email:`, error);
+        console.error(
+          `[MailService] Error sending password reset email:`,
+          error,
+        );
         throw new Error(error.message);
       }
 
-      console.log(`[MailService] Password reset email sent successfully. ID: ${data?.id}`);
+      console.log(
+        `[MailService] Password reset email sent successfully. ID: ${data?.id}`,
+      );
     } catch (error) {
-      console.error(`[MailService] Unexpected error sending password reset email:`, error);
+      console.error(
+        `[MailService] Unexpected error sending password reset email:`,
+        error,
+      );
       throw error;
     }
   }
@@ -170,9 +178,14 @@ export class MailService {
         throw new Error(error.message);
       }
 
-      console.log(`[MailService] Invite email sent successfully. ID: ${data?.id}`);
+      console.log(
+        `[MailService] Invite email sent successfully. ID: ${data?.id}`,
+      );
     } catch (error) {
-      console.error(`[MailService] Unexpected error sending invite email:`, error);
+      console.error(
+        `[MailService] Unexpected error sending invite email:`,
+        error,
+      );
       throw error;
     }
   }

@@ -11,4 +11,4 @@ import { ConfigModule } from '@nestjs/config';
   providers: [CommentsService, UploadService],
   exports: [CommentsService],
 })
-export class CommentsModule { }
+export class CommentsModule {}

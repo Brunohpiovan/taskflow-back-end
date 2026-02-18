@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEnvironmentDto } from './dto/create-environment.dto';
 import { UpdateEnvironmentDto } from './dto/update-environment.dto';
@@ -36,10 +40,7 @@ export class EnvironmentsService {
   async findAll(userId: string): Promise<EnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
       where: {
-        OR: [
-          { userId },
-          { members: { some: { userId } } },
-        ],
+        OR: [{ userId }, { members: { some: { userId } } }],
       },
       select: {
         ...environmentSelect,
@@ -58,10 +59,7 @@ export class EnvironmentsService {
   ): Promise<DashboardEnvironmentResponse[]> {
     const environments = await this.prisma.environment.findMany({
       where: {
-        OR: [
-          { userId },
-          { members: { some: { userId } } },
-        ],
+        OR: [{ userId }, { members: { some: { userId } } }],
       },
       select: {
         id: true,
@@ -82,6 +80,20 @@ export class EnvironmentsService {
       boardsCount: e._count.boards,
       cardsCount: e.boards.reduce((sum, b) => sum + b._count.cards, 0),
     }));
+  }
+
+  async findAllSimple(userId: string): Promise<{ id: string; name: string; slug: string }[]> {
+    return this.prisma.environment.findMany({
+      where: {
+        OR: [{ userId }, { members: { some: { userId } } }],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async findOne(id: string, userId: string): Promise<EnvironmentResponse> {
