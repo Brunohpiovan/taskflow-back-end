@@ -127,9 +127,14 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Registrar novo usuário' })
   @ApiResponse({ status: 201, description: 'Usuário criado com sucesso' })
   @ApiResponse({ status: 409, description: 'Email já em uso' })
+  @ApiResponse({
+    status: 429,
+    description: 'Muitas tentativas de registro. Tente novamente em alguns minutos.',
+  })
   async register(@Body() dto: RegisterDto): Promise<AuthResponseDto> {
     return this.authService.register(dto);
   }
@@ -175,10 +180,15 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Solicitar redefinição de senha' })
   @ApiResponse({
     status: 200,
     description: 'Email enviado (ou ignorado silenciosamente)',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Muitas tentativas. Tente novamente em alguns minutos.',
   })
   async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
     return this.authService.forgotPassword(dto.email);
@@ -187,9 +197,14 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Redefinir senha com token' })
   @ApiResponse({ status: 200, description: 'Senha redefinida com sucesso' })
   @ApiResponse({ status: 400, description: 'Token inválido ou expirado' })
+  @ApiResponse({
+    status: 429,
+    description: 'Muitas tentativas. Tente novamente em alguns minutos.',
+  })
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<void> {
     return this.authService.resetPassword(dto.token, dto.password);
   }

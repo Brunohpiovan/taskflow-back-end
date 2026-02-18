@@ -17,6 +17,7 @@ export class UpdateCardDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @MaxLength(200, { message: 'Título deve ter no máximo 200 caracteres' })
   title?: string;
 
   @ApiPropertyOptional({ maxLength: CARD_DESCRIPTION_MAX_LENGTH })

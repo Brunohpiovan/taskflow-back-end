@@ -31,12 +31,7 @@ export class EnvironmentsController {
     summary: 'Listar ambientes para dashboard (dados otimizados)',
   })
   findAllDashboard(@CurrentUser() user: JwtPayload) {
-    try {
-      return this.environmentsService.findAllDashboard(user.sub);
-    } catch (error) {
-      console.error('Error fetching dashboard environments:', error);
-      throw error;
-    }
+    return this.environmentsService.findAllDashboard(user.sub);
   }
 
   @Get('simple')
@@ -44,12 +39,7 @@ export class EnvironmentsController {
     summary: 'Listar ambientes simplificado (apenas id, nome e slug)',
   })
   findAllSimple(@CurrentUser() user: JwtPayload) {
-    try {
-      return this.environmentsService.findAllSimple(user.sub);
-    } catch (error) {
-      console.error('Error fetching simple environments:', error);
-      throw error;
-    }
+    return this.environmentsService.findAllSimple(user.sub);
   }
 
   @Get()

@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   BadRequestException,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { JwtService } from '@nestjs/jwt';
@@ -18,6 +19,7 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly saltRounds = 10;
 
   constructor(
@@ -131,35 +133,27 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<void> {
-    console.log(`[ForgotPassword] Initiating for email: ${email}`);
+    this.logger.log(`Initiating password reset for email: ${email}`);
     const user = await this.usersService.findByEmail(email);
 
     if (!user) {
-      console.log(`[ForgotPassword] User not found for email: ${email}`);
+      this.logger.log(`User not found for email: ${email}`);
       // Security: Don't reveal if user exists or not, just return
       return;
     }
-
-    // if (!user.passwordHash) {
-    //   console.log(`[ForgotPassword] User ${email} is OAuth-only (no password hash).`);
-    //   // OAuth user, cannot reset password. Ideally we could send an email saying so.
-    //   return;
-    // }
 
     const token = crypto.randomBytes(32).toString('hex');
     const expires = new Date();
     expires.setHours(expires.getHours() + 1); // 1 hour
 
-    console.log(
-      `[ForgotPassword] Generated token for ${email}, updating DB...`,
-    );
+    this.logger.log(`Generated reset token for ${email}, updating database`);
     try {
       await this.usersService.updateResetToken(user.id, token, expires);
-      console.log(`[ForgotPassword] DB updated. Sending email...`);
+      this.logger.log(`Database updated. Sending password reset email`);
       await this.mailService.sendPasswordResetEmail(user.email, token);
-      console.log(`[ForgotPassword] Email sent.`);
+      this.logger.log(`Password reset email sent successfully`);
     } catch (error) {
-      console.error(`[ForgotPassword] Error:`, error);
+      this.logger.error(`Error during password reset process:`, error);
       throw error;
     }
   }

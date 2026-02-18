@@ -17,6 +17,7 @@ export class CreateCardDto {
   @ApiProperty({ example: 'Tarefa exemplo' })
   @IsString()
   @MinLength(1, { message: 'Título é obrigatório' })
+  @MaxLength(200, { message: 'Título deve ter no máximo 200 caracteres' })
   title: string;
 
   @ApiPropertyOptional({ maxLength: CARD_DESCRIPTION_MAX_LENGTH })
