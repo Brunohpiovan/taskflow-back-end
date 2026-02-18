@@ -209,6 +209,7 @@ describe('AuthService', () => {
 
       const result = await service.refresh({
         sub: 'user-1',
+        id: 'user-1',
         email: 'user@example.com',
       });
 
@@ -220,7 +221,7 @@ describe('AuthService', () => {
       mockUsersService.findById.mockResolvedValue(null);
 
       await expect(
-        service.refresh({ sub: 'unknown', email: 'u@x.com' }),
+        service.refresh({ sub: 'unknown', id: 'unknown', email: 'u@x.com' }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -230,7 +231,7 @@ describe('AuthService', () => {
     it('deve retornar o perfil do usuário', async () => {
       mockUsersService.findById.mockResolvedValue(mockUser);
 
-      const result = await service.getProfile({ sub: 'user-1', email: 'user@example.com' });
+      const result = await service.getProfile({ sub: 'user-1', id: 'user-1', email: 'user@example.com' });
 
       expect(result.id).toBe('user-1');
       expect(result.name).toBe('User');
@@ -241,7 +242,7 @@ describe('AuthService', () => {
       mockUsersService.findById.mockResolvedValue(null);
 
       await expect(
-        service.getProfile({ sub: 'ghost', email: 'ghost@x.com' }),
+        service.getProfile({ sub: 'ghost', id: 'ghost', email: 'ghost@x.com' }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -251,7 +252,7 @@ describe('AuthService', () => {
     it('deve lançar BadRequestException quando senhas não coincidem', async () => {
       await expect(
         service.updateProfile(
-          { sub: 'user-1', email: 'user@example.com' },
+          { sub: 'user-1', id: 'user-1', email: 'user@example.com' },
           { password: 'nova123', confirmPassword: 'diferente' },
         ),
       ).rejects.toThrow(BadRequestException);
@@ -260,7 +261,7 @@ describe('AuthService', () => {
     it('deve lançar BadRequestException quando confirmPassword está vazio', async () => {
       await expect(
         service.updateProfile(
-          { sub: 'user-1', email: 'user@example.com' },
+          { sub: 'user-1', id: 'user-1', email: 'user@example.com' },
           { password: 'nova123', confirmPassword: '' },
         ),
       ).rejects.toThrow(BadRequestException);
@@ -273,7 +274,7 @@ describe('AuthService', () => {
       });
 
       const result = await service.updateProfile(
-        { sub: 'user-1', email: 'user@example.com' },
+        { sub: 'user-1', id: 'user-1', email: 'user@example.com' },
         { name: 'Novo Nome' },
       );
 
@@ -287,7 +288,7 @@ describe('AuthService', () => {
       mockUsersService.updateProfile.mockResolvedValue(mockUser);
 
       await service.updateProfile(
-        { sub: 'user-1', email: 'user@example.com' },
+        { sub: 'user-1', id: 'user-1', email: 'user@example.com' },
         { password: 'novaSenha123', confirmPassword: 'novaSenha123' },
       );
 
