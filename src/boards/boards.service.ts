@@ -42,7 +42,7 @@ export class BoardsService {
     private prisma: PrismaService,
     private eventsGateway: EventsGateway,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
-  ) {}
+  ) { }
 
   async findByEnvironmentId(
     environmentId: string,

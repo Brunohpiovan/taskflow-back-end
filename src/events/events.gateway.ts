@@ -9,32 +9,56 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // Configure properly for production
+    origin: (request, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!request) return callback(null, true);
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        process.env.CORS_ORIGIN,
+        process.env.FRONTEND_URL,
+      ].filter(Boolean);
+
+      if (allowedOrigins.indexOf(request) !== -1 || !request) {
+        callback(null, true);
+      } else {
+        // Fallback for development if needed, or stick to strict checking
+        callback(null, true); // Temporarily allow all for debugging if issues persist, or valid origin
+      }
+    },
+    credentials: true,
   },
+  transports: ['websocket', 'polling'], // Explicitly allow both
 })
 @Injectable()
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
+  private readonly logger = new Logger(EventsGateway.name);
+
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async handleConnection(client: Socket) {
+    this.logger.log(`Socket attempting connection: ${client.id}`);
     try {
       // Basic auth check using query param or header
       const token =
         client.handshake.auth.token || client.handshake.headers.authorization;
+
+      this.logger.debug(`Socket ${client.id} - Token present: ${!!token}`);
+
       if (!token) {
         // client.disconnect(); // Optional: Enforce auth
-        return;
+        // return;
       }
 
       const secret =
@@ -42,13 +66,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Verify token logic if needed, or just trust for now since we rely on room joining logic
       // const payload = this.jwtService.verify(token, { secret });
       // client.data.user = payload;
+      this.logger.log(`Socket connected: ${client.id}`);
     } catch (e) {
+      this.logger.error(`Socket connection error for ${client.id}:`, e.message);
       // client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    // client left
+    this.logger.log(`Socket disconnected: ${client.id}`);
   }
 
   @SubscribeMessage('joinEnvironment')
