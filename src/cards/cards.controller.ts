@@ -11,6 +11,7 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CardsService } from './cards.service';
@@ -24,6 +25,8 @@ import type { JwtPayload } from '../common/decorators/current-user.decorator';
 @ApiBearerAuth('JWT')
 @Controller('cards')
 export class CardsController {
+  private readonly logger = new Logger(CardsController.name);
+
   constructor(private readonly cardsService: CardsService) { }
 
   @Get('calendar')
@@ -49,7 +52,7 @@ export class CardsController {
   @Post()
   @ApiOperation({ summary: 'Criar card' })
   create(@CurrentUser() user: JwtPayload, @Body() dto: CreateCardDto) {
-    console.log('Creating card DTO:', JSON.stringify(dto, null, 2));
+    this.logger.debug(`Creating card: ${JSON.stringify(dto)}`);
     return this.cardsService.create(user.sub, dto);
   }
 

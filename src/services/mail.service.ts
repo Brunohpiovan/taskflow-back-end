@@ -1,15 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
   private resend: Resend;
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     if (!apiKey) {
-      console.warn('[MailService] RESEND_API_KEY is not defined');
+      this.logger.warn('RESEND_API_KEY is not defined');
     }
     this.resend = new Resend(apiKey);
   }
@@ -68,7 +69,7 @@ export class MailService {
     };
 
     try {
-      console.log(`[MailService] Sending password reset email to: ${to}`);
+      this.logger.log(`Sending password reset email to: ${to}`);
       const { data, error } = await this.resend.emails.send({
         from: 'TaskFlow <nao-responda@redescomputadores.site>',
         to: [to],
@@ -78,21 +79,13 @@ export class MailService {
       });
 
       if (error) {
-        console.error(
-          `[MailService] Error sending password reset email:`,
-          error,
-        );
+        this.logger.error('Error sending password reset email:', error);
         throw new Error(error.message);
       }
 
-      console.log(
-        `[MailService] Password reset email sent successfully. ID: ${data?.id}`,
-      );
+      this.logger.log(`Password reset email sent successfully. ID: ${data?.id}`);
     } catch (error) {
-      console.error(
-        `[MailService] Unexpected error sending password reset email:`,
-        error,
-      );
+      this.logger.error('Unexpected error sending password reset email:', error);
       throw error;
     }
   }
@@ -164,7 +157,7 @@ export class MailService {
     };
 
     try {
-      console.log(`[MailService] Sending invite email to: ${to}`);
+      this.logger.log(`Sending invite email to: ${to}`);
       const { data, error } = await this.resend.emails.send({
         from: 'TaskFlow <nao-responda@redescomputadores.site>',
         to: [to],
@@ -174,18 +167,13 @@ export class MailService {
       });
 
       if (error) {
-        console.error(`[MailService] Error sending invite email:`, error);
+        this.logger.error('Error sending invite email:', error);
         throw new Error(error.message);
       }
 
-      console.log(
-        `[MailService] Invite email sent successfully. ID: ${data?.id}`,
-      );
+      this.logger.log(`Invite email sent successfully. ID: ${data?.id}`);
     } catch (error) {
-      console.error(
-        `[MailService] Unexpected error sending invite email:`,
-        error,
-      );
+      this.logger.error('Unexpected error sending invite email:', error);
       throw error;
     }
   }
