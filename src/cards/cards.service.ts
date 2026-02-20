@@ -312,7 +312,40 @@ export class CardsService {
     userId: string,
     dto: UpdateCardDto,
   ): Promise<CardResponse> {
-    await this.findOneOrThrow(id, userId);
+    const oldCard = await this.prisma.card.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        dueDate: true,
+        completed: true,
+        board: {
+          select: { environment: { select: { userId: true, id: true } } },
+        },
+      },
+    });
+
+    if (!oldCard) {
+      throw new NotFoundException('Card não encontrado');
+    }
+
+    // Permission check (duplicate of findOneOrThrow logic to avoid double fetch)
+    const environment = oldCard.board.environment;
+    const isOwner = environment.userId === userId;
+
+    if (!isOwner) {
+      const isMember = await this.prisma.environmentMember.findFirst({
+        where: {
+          environmentId: environment.id,
+          userId: userId,
+        },
+      });
+
+      if (!isMember) {
+        throw new ForbiddenException('Acesso negado');
+      }
+    }
 
     const card = await this.prisma.card.update({
       where: { id },
@@ -336,9 +369,9 @@ export class CardsService {
     });
 
     // Fire-and-forget logging
-    this.activityLogsService
-      .logAction(card.id, userId, 'UPDATED', 'Card atualizado')
-      .catch((err) => this.logger.error('Failed to log card update action', err));
+    this.logCardDiff(card.id, userId, oldCard, card).catch((err) =>
+      this.logger.error('Failed to log granular card update actions', err),
+    );
 
     const board = await this.prisma.board.findUnique({
       where: { id: card.boardId },
@@ -451,8 +484,19 @@ export class CardsService {
     });
 
     // Fire-and-forget logging
+    const boards = await this.prisma.board.findMany({
+      where: { id: { in: [card.boardId, dto.targetBoardId] } },
+      select: { id: true, name: true }
+    });
+    const fromBoard = boards.find(b => b.id === card.boardId)?.name || 'Desconhecido';
+    const toBoard = boards.find(b => b.id === dto.targetBoardId)?.name || 'Desconhecido';
+
+    const moveMsg = card.boardId === dto.targetBoardId
+      ? `Card movido dentro do quadro ${fromBoard}`
+      : `Card movido de ${fromBoard} para ${toBoard}`;
+
     this.activityLogsService
-      .logAction(id, userId, 'MOVED', `Card movido para nova posição/quadro`)
+      .logAction(id, userId, 'MOVED', moveMsg)
       .catch((err) => this.logger.error('Failed to log card move action', err));
 
     // Emit event
@@ -782,5 +826,43 @@ export class CardsService {
     }
 
     return this.getCardMembers(cardId, currentUserId);
+  }
+
+  private async logCardDiff(
+    cardId: string,
+    userId: string,
+    oldState: { title: string; description: string | null; dueDate: Date | null; completed: boolean },
+    newState: { title: string; description?: string | null; dueDate?: Date | null; completed: boolean },
+  ) {
+    const logs: string[] = [];
+
+    if (oldState.title !== newState.title) {
+      logs.push(`Título alterado de "${oldState.title}" para "${newState.title}"`);
+    }
+
+    if (oldState.completed !== newState.completed) {
+      logs.push(newState.completed ? 'Card marcado como concluído' : 'Card reaberto (marcado como não concluído)');
+    }
+
+    if (String(oldState.description ?? '') !== String(newState.description ?? '')) {
+      logs.push('Descrição alterada');
+    }
+
+    const oldDate = oldState.dueDate?.toISOString().slice(0, 16);
+    const newDate = newState.dueDate?.toISOString().slice(0, 16);
+
+    if (oldDate !== newDate) {
+      if (!newDate) {
+        logs.push('Prazo removido');
+      } else if (!oldDate) {
+        logs.push(`Prazo definido para ${new Date(newDate).toLocaleString('pt-BR')}`);
+      } else {
+        logs.push(`Prazo alterado para ${new Date(newDate).toLocaleString('pt-BR')}`);
+      }
+    }
+
+    for (const log of logs) {
+      await this.activityLogsService.logAction(cardId, userId, 'UPDATED', log);
+    }
   }
 }
