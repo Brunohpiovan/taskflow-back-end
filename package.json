@@ -1,7 +1,7 @@
 {
-  "name": "backend",
-  "version": "0.0.1",
-  "description": "",
+  "name": "taskflow-api",
+  "version": "1.0.0",
+  "description": "TaskFlow API — Gerenciamento de tarefas em tempo real com WebSockets",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

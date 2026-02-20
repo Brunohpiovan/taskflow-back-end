@@ -1,8 +1,10 @@
 import {
   Injectable,
   NotFoundException,
+  ForbiddenException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardsService } from '../boards/boards.service';
@@ -123,6 +125,8 @@ import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class CardsService {
+  private readonly logger = new Logger(CardsService.name);
+
   constructor(
     private prisma: PrismaService,
     @Inject(forwardRef(() => BoardsService))
@@ -222,7 +226,6 @@ export class CardsService {
   }
 
   async create(userId: string, dto: CreateCardDto): Promise<CardResponse> {
-    console.log('CardsService.create - Members:', dto.members);
     const board = await this.boardsService.findOneForUser(dto.boardId, userId);
 
     // Validate members belong to the environment
@@ -287,7 +290,7 @@ export class CardsService {
     // Fire-and-forget logging
     this.activityLogsService
       .logAction(card.id, userId, 'CREATED', `Card criado: ${card.title}`)
-      .catch((err) => console.error('Failed to log action', err));
+      .catch((err) => this.logger.error('Failed to log card creation action', err));
 
     // Fetch envId for event
     const boardForEvent = await this.prisma.board.findUnique({
@@ -335,7 +338,7 @@ export class CardsService {
     // Fire-and-forget logging
     this.activityLogsService
       .logAction(card.id, userId, 'UPDATED', 'Card atualizado')
-      .catch((err) => console.error('Failed to log action', err));
+      .catch((err) => this.logger.error('Failed to log card update action', err));
 
     const board = await this.prisma.board.findUnique({
       where: { id: card.boardId },
@@ -358,16 +361,6 @@ export class CardsService {
   ): Promise<MoveCardResponseDto> {
     const card = await this.findOneOrThrow(id, userId);
     await this.boardsService.findOneForUser(dto.targetBoardId, userId);
-
-    // ... existing transaction logic ...
-    // Re-implementing transaction logic is verbose to replace.
-    // I'll try to just wrap the existing logic or simpler: assume move is complex and just insert the log creation after.
-
-    // Actually, since I have to replace the whole file content block or chunk.
-    // I will return the existing move implementation but Add log at the end.
-
-    // Wait, replacing the whole file is safer given the complexity of 'move'.
-
     return this._moveWithLog(id, userId, dto, card);
   }
 
@@ -460,7 +453,7 @@ export class CardsService {
     // Fire-and-forget logging
     this.activityLogsService
       .logAction(id, userId, 'MOVED', `Card movido para nova posição/quadro`)
-      .catch((err) => console.error('Failed to log action', err));
+      .catch((err) => this.logger.error('Failed to log card move action', err));
 
     // Emit event
     // We need environmentId. card object passed in has boardId, but not envId.
@@ -538,7 +531,7 @@ export class CardsService {
       });
 
       if (!isMember) {
-        throw new NotFoundException('Card não encontrado');
+        throw new ForbiddenException('Acesso negado');
       }
     }
 
@@ -712,7 +705,7 @@ export class CardsService {
         'MEMBER_ADDED',
         `${user?.name || 'Membro'} adicionado ao card`,
       )
-      .catch((err) => console.error('Failed to log action', err));
+      .catch((err) => this.logger.error('Failed to log member add action', err));
 
     // Emit WebSocket event for real-time update
     const updatedCard = await this.prisma.card.findUnique({
@@ -766,7 +759,7 @@ export class CardsService {
         'MEMBER_REMOVED',
         `${user?.name || 'Membro'} removido do card`,
       )
-      .catch((err) => console.error('Failed to log action', err));
+      .catch((err) => this.logger.error('Failed to log member remove action', err));
 
     // Emit WebSocket event for real-time update
     const updatedCard = await this.prisma.card.findUnique({
