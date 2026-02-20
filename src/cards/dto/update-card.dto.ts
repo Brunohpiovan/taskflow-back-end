@@ -7,6 +7,7 @@ import {
   Min,
   IsArray,
   IsDateString,
+  ValidateIf,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -39,8 +40,12 @@ export class UpdateCardDto {
   @IsString({ each: true })
   labels?: string[];
 
-  @ApiPropertyOptional()
+  /**
+   * ISO date string for the due date, or empty string "" to clear the due date.
+   */
+  @ApiPropertyOptional({ description: 'ISO date string or empty string to clear' })
   @IsOptional()
+  @ValidateIf((o) => o.dueDate !== '')
   @IsDateString()
   dueDate?: string;
 
