@@ -5,13 +5,10 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export interface PaginatedActivityLogs {
   data: {
-    id: string;
-    cardId: string;
-    userId: string;
     action: string;
     details: string | null;
     createdAt: string;
-    user: { id: string; name: string; avatar: string | null };
+    user: { name: string; avatar: string | null };
   }[];
   nextCursor: string | null;
 }
@@ -45,14 +42,18 @@ export class ActivityLogsService {
 
     const logs = await this.prisma.activityLog.findMany({
       where: { cardId },
-      include: {
-        user: { select: { id: true, name: true, avatar: true } },
+      select: {
+        id: true, // needed for cursor-based pagination
+        action: true,
+        details: true,
+        createdAt: true,
+        user: { select: { name: true, avatar: true } },
       },
       orderBy: { createdAt: 'desc' },
-      take: take + 1, // fetch one extra to know if there's a next page
+      take: take + 1,
       ...(cursor && {
         cursor: { id: cursor },
-        skip: 1, // skip the cursor itself
+        skip: 1,
       }),
     });
 
@@ -61,7 +62,7 @@ export class ActivityLogsService {
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
     return {
-      data: data.map((log) => ({
+      data: data.map(({ id: _id, ...log }) => ({
         ...log,
         createdAt: log.createdAt.toISOString(),
       })),
