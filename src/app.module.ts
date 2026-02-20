@@ -15,6 +15,7 @@ import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { EventsModule } from './events/events.module';
 import { CacheModule } from './common/cache/cache.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -35,10 +36,11 @@ import { MetricsModule } from './metrics/metrics.module';
     CacheModule,
     MetricsModule,
   ],
-  controllers: [],
+  controllers: [AppController],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }
+
