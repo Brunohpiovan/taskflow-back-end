@@ -9,6 +9,16 @@ const mockPrisma = {
   },
 };
 
+const makeLog = (id: string, createdAt = new Date()) => ({
+  id,
+  cardId: 'card-1',
+  userId: 'user-1',
+  action: 'CREATED',
+  details: 'Card criado',
+  createdAt,
+  user: { id: 'user-1', name: 'João', avatar: null },
+});
+
 describe('ActivityLogsService', () => {
   let service: ActivityLogsService;
 
@@ -28,16 +38,10 @@ describe('ActivityLogsService', () => {
     expect(service).toBeDefined();
   });
 
+  // ─── logAction ──────────────────────────────────────────────
   describe('logAction', () => {
     it('deve registrar uma ação no banco de dados', async () => {
-      const mockLog = {
-        id: 'log-1',
-        cardId: 'card-1',
-        userId: 'user-1',
-        action: 'CREATED',
-        details: 'Card criado',
-        createdAt: new Date(),
-      };
+      const mockLog = makeLog('log-1');
       mockPrisma.activityLog.create.mockResolvedValue(mockLog);
 
       const result = await service.logAction('card-1', 'user-1', 'CREATED', 'Card criado');
@@ -54,26 +58,62 @@ describe('ActivityLogsService', () => {
     });
   });
 
+  // ─── getByCardId ─────────────────────────────────────────────
   describe('getByCardId', () => {
-    it('deve retornar logs de atividade de um card', async () => {
-      const createdAt = new Date('2024-01-01T10:00:00Z');
-      mockPrisma.activityLog.findMany.mockResolvedValue([
-        {
-          id: 'log-1',
-          cardId: 'card-1',
-          userId: 'user-1',
-          action: 'CREATED',
-          details: 'Card criado',
-          createdAt,
-          user: { id: 'user-1', name: 'João', avatar: null },
-        },
-      ]);
+    it('deve retornar primeira página com nextCursor quando há mais itens', async () => {
+      // 11 logs simulados para um limit=10 → deve retornar 10 + nextCursor
+      const logs = Array.from({ length: 11 }, (_, i) => makeLog(`log-${i + 1}`));
+      mockPrisma.activityLog.findMany.mockResolvedValue(logs);
+
+      const result = await service.getByCardId('card-1', undefined, 10);
+
+      expect(result.data).toHaveLength(10);
+      expect(result.nextCursor).toBe('log-10'); // id do último item retornado
+      expect(result.data[0].createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/); // ISO string
+    });
+
+    it('deve retornar nextCursor null quando é a última página', async () => {
+      // Apenas 5 logs — menos que o limit=10 → última página
+      const logs = Array.from({ length: 5 }, (_, i) => makeLog(`log-${i + 1}`));
+      mockPrisma.activityLog.findMany.mockResolvedValue(logs);
+
+      const result = await service.getByCardId('card-1', undefined, 10);
+
+      expect(result.data).toHaveLength(5);
+      expect(result.nextCursor).toBeNull();
+    });
+
+    it('deve usar cursor ao buscar próxima página', async () => {
+      const logs = [makeLog('log-11')];
+      mockPrisma.activityLog.findMany.mockResolvedValue(logs);
+
+      await service.getByCardId('card-1', 'log-10', 10);
+
+      expect(mockPrisma.activityLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cursor: { id: 'log-10' },
+          skip: 1,
+        }),
+      );
+    });
+
+    it('deve respeitar o limite máximo de 50 por request', async () => {
+      mockPrisma.activityLog.findMany.mockResolvedValue([]);
+
+      await service.getByCardId('card-1', undefined, 200);
+
+      expect(mockPrisma.activityLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 51 }), // 50 + 1 para detecção de próxima página
+      );
+    });
+
+    it('deve retornar lista vazia quando não há logs', async () => {
+      mockPrisma.activityLog.findMany.mockResolvedValue([]);
 
       const result = await service.getByCardId('card-1');
 
-      expect(result).toHaveLength(1);
-      expect(result[0].action).toBe('CREATED');
-      expect(result[0].createdAt).toBe(createdAt.toISOString());
+      expect(result.data).toHaveLength(0);
+      expect(result.nextCursor).toBeNull();
     });
   });
 });
